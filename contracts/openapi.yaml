@@ -1,0 +1,2663 @@
+openapi: "3.1.0"
+
+info:
+  title: Igreja Organizada API
+  version: "1.0.0"
+  description: |
+    REST API for Igreja Organizada MVP.
+    All endpoints require authentication unless marked as public.
+    Multi-tenant isolation is enforced server-side via JWT church_id claim.
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development
+  - url: https://api.igreaorganizada.com.br/api/v1
+    description: Production
+
+# =============================================================================
+# SECURITY
+# =============================================================================
+security:
+  - BearerAuth: []
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  # ===========================================================================
+  # SHARED SCHEMAS
+  # ===========================================================================
+  schemas:
+
+    UUID:
+      type: string
+      format: uuid
+      example: "550e8400-e29b-41d4-a716-446655440000"
+
+    Timestamp:
+      type: string
+      format: date-time
+      example: "2025-04-22T14:30:00Z"
+
+    Date:
+      type: string
+      format: date
+      example: "2025-04-22"
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              example: "SCHEDULE_ALREADY_EXISTS"
+            message:
+              type: string
+              example: "A schedule for this Sunday already exists."
+            field:
+              type: string
+              nullable: true
+              example: "sunday_date"
+
+    PaginationMeta:
+      type: object
+      properties:
+        total:
+          type: integer
+          example: 48
+        page:
+          type: integer
+          example: 1
+        per_page:
+          type: integer
+          example: 20
+
+    # ── CHURCH ────────────────────────────────────────────────────────────────
+
+    Church:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        parent_church_id:
+          $ref: "#/components/schemas/UUID"
+          nullable: true
+        name:
+          type: string
+          example: "Primeira Igreja Batista"
+        denomination_name:
+          type: string
+          nullable: true
+          example: "Convenção Batista Brasileira"
+        cnpj:
+          type: string
+          nullable: true
+          example: "00.000.000/0001-00"
+        address:
+          type: string
+          nullable: true
+          example: "Rua das Flores, 123 — Belo Horizonte, MG"
+        is_autonomous:
+          type: boolean
+          example: false
+        plan_tier:
+          type: string
+          enum: [free, basic, growth, enterprise]
+          example: "basic"
+        member_count_cache:
+          type: integer
+          example: 87
+        created_at:
+          $ref: "#/components/schemas/Timestamp"
+
+    ChurchUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        denomination_name:
+          type: string
+          nullable: true
+        cnpj:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        billing_email:
+          type: string
+          format: email
+          nullable: true
+
+    CongregationCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          example: "Congregação Vila Nova"
+        address:
+          type: string
+          nullable: true
+
+    # ── MEMBER ────────────────────────────────────────────────────────────────
+
+    Member:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        name:
+          type: string
+          example: "João Silva"
+        email:
+          type: string
+          format: email
+          example: "joao@example.com"
+        phone:
+          type: string
+          nullable: true
+          example: "+55 31 99999-0000"
+        birth_date:
+          $ref: "#/components/schemas/Date"
+          nullable: true
+        avatar_url:
+          type: string
+          nullable: true
+        is_active:
+          type: boolean
+          example: true
+        roles:
+          type: array
+          items:
+            $ref: "#/components/schemas/RoleSummary"
+        instruments:
+          type: array
+          items:
+            $ref: "#/components/schemas/MemberInstrument"
+        created_at:
+          $ref: "#/components/schemas/Timestamp"
+
+    MemberSummary:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        name:
+          type: string
+        email:
+          type: string
+        is_active:
+          type: boolean
+
+    MemberCreate:
+      type: object
+      required: [name, email]
+      properties:
+        name:
+          type: string
+          example: "João Silva"
+        email:
+          type: string
+          format: email
+          example: "joao@example.com"
+        phone:
+          type: string
+          nullable: true
+        birth_date:
+          type: string
+          format: date
+          nullable: true
+        role_ids:
+          type: array
+          items:
+            $ref: "#/components/schemas/UUID"
+          description: "Role IDs to assign on creation"
+
+    MemberUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        birth_date:
+          type: string
+          format: date
+          nullable: true
+
+    MemberImportRow:
+      type: object
+      required: [name, email]
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          nullable: true
+
+    MemberImportResult:
+      type: object
+      properties:
+        created:
+          type: integer
+          example: 42
+        skipped:
+          type: integer
+          example: 3
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              row:
+                type: integer
+              reason:
+                type: string
+
+    # ── ROLE ──────────────────────────────────────────────────────────────────
+
+    Role:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        church_id:
+          $ref: "#/components/schemas/UUID"
+          nullable: true
+        name:
+          type: string
+          example: "Presbyter"
+        base_profile:
+          type: string
+          enum: [pastor, leadership, musician, member]
+        is_system:
+          type: boolean
+
+    RoleSummary:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        name:
+          type: string
+        base_profile:
+          type: string
+          enum: [pastor, leadership, musician, member]
+
+    RoleCreate:
+      type: object
+      required: [name, base_profile]
+      properties:
+        name:
+          type: string
+          example: "Presbyter"
+        base_profile:
+          type: string
+          enum: [pastor, leadership, musician, member]
+
+    RoleAssign:
+      type: object
+      required: [role_id]
+      properties:
+        role_id:
+          $ref: "#/components/schemas/UUID"
+
+    # ── INSTRUMENT ────────────────────────────────────────────────────────────
+
+    Instrument:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        church_id:
+          $ref: "#/components/schemas/UUID"
+          nullable: true
+        name:
+          type: string
+          example: "Acoustic Guitar"
+        is_system:
+          type: boolean
+
+    MemberInstrument:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        instrument_id:
+          $ref: "#/components/schemas/UUID"
+        instrument_name:
+          type: string
+          example: "Acoustic Guitar"
+        is_primary:
+          type: boolean
+
+    MemberInstrumentAdd:
+      type: object
+      required: [instrument_id]
+      properties:
+        instrument_id:
+          $ref: "#/components/schemas/UUID"
+        is_primary:
+          type: boolean
+          default: false
+
+    InstrumentCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          example: "Pandeiro"
+
+    # ── AVAILABILITY SLOT (AGENDA) ─────────────────────────────────────────────
+
+    AvailabilitySlot:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        church_id:
+          $ref: "#/components/schemas/UUID"
+        created_by:
+          $ref: "#/components/schemas/UUID"
+        day_of_week:
+          type: integer
+          minimum: 0
+          maximum: 6
+          description: "0 = Sunday, 6 = Saturday"
+          example: 2
+        start_time:
+          type: string
+          example: "09:00"
+        end_time:
+          type: string
+          example: "11:00"
+        is_active:
+          type: boolean
+
+    AvailabilitySlotCreate:
+      type: object
+      required: [day_of_week, start_time, end_time]
+      properties:
+        day_of_week:
+          type: integer
+          minimum: 0
+          maximum: 6
+        start_time:
+          type: string
+          example: "09:00"
+        end_time:
+          type: string
+          example: "11:00"
+
+    # ── EVENT ─────────────────────────────────────────────────────────────────
+
+    Event:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        church_id:
+          $ref: "#/components/schemas/UUID"
+        title:
+          type: string
+          example: "Pastoral visit — João Silva"
+        event_type:
+          type: string
+          enum: [pastoral_visit, counseling, leadership_meeting, block, other]
+        status:
+          type: string
+          enum: [requested, confirmed, declined, cancelled]
+        requested_by:
+          $ref: "#/components/schemas/MemberSummary"
+          nullable: true
+        approved_by:
+          $ref: "#/components/schemas/MemberSummary"
+          nullable: true
+        starts_at:
+          $ref: "#/components/schemas/Timestamp"
+        ends_at:
+          $ref: "#/components/schemas/Timestamp"
+        location:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+          description: "Visible to pastor and leadership only"
+        gcal_event_id:
+          type: string
+          nullable: true
+        attendees:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventAttendee"
+        created_at:
+          $ref: "#/components/schemas/Timestamp"
+
+    EventSummary:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        title:
+          type: string
+        event_type:
+          type: string
+          enum: [pastoral_visit, counseling, leadership_meeting, block, other]
+        status:
+          type: string
+          enum: [requested, confirmed, declined, cancelled]
+        starts_at:
+          $ref: "#/components/schemas/Timestamp"
+        ends_at:
+          $ref: "#/components/schemas/Timestamp"
+
+    EventCreate:
+      type: object
+      required: [title, event_type, starts_at, ends_at]
+      properties:
+        title:
+          type: string
+          example: "Request: pastoral visit"
+        event_type:
+          type: string
+          enum: [pastoral_visit, counseling, leadership_meeting, block, other]
+        starts_at:
+          $ref: "#/components/schemas/Timestamp"
+        ends_at:
+          $ref: "#/components/schemas/Timestamp"
+        location:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        attendee_ids:
+          type: array
+          items:
+            $ref: "#/components/schemas/UUID"
+
+    EventUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        starts_at:
+          $ref: "#/components/schemas/Timestamp"
+        ends_at:
+          $ref: "#/components/schemas/Timestamp"
+        location:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    EventDecline:
+      type: object
+      properties:
+        decline_reason:
+          type: string
+          example: "Already have a commitment at this time."
+
+    EventAttendee:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        member:
+          $ref: "#/components/schemas/MemberSummary"
+        status:
+          type: string
+          enum: [invited, accepted, declined, attended]
+        responded_at:
+          $ref: "#/components/schemas/Timestamp"
+          nullable: true
+
+    EventAttendeeAdd:
+      type: object
+      required: [member_id]
+      properties:
+        member_id:
+          $ref: "#/components/schemas/UUID"
+
+    # ── AVAILABILITY EXCEPTION (WORSHIP) ──────────────────────────────────────
+
+    AvailabilityException:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        member_id:
+          $ref: "#/components/schemas/UUID"
+        church_id:
+          $ref: "#/components/schemas/UUID"
+        unavailable_date:
+          $ref: "#/components/schemas/Date"
+        reason:
+          type: string
+          nullable: true
+        created_at:
+          $ref: "#/components/schemas/Timestamp"
+
+    AvailabilityExceptionCreate:
+      type: object
+      required: [unavailable_date]
+      properties:
+        unavailable_date:
+          $ref: "#/components/schemas/Date"
+        reason:
+          type: string
+          nullable: true
+
+    AvailabilityExceptionWithMember:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        member:
+          $ref: "#/components/schemas/MemberSummary"
+        unavailable_date:
+          $ref: "#/components/schemas/Date"
+        reason:
+          type: string
+          nullable: true
+
+    # ── SCHEDULE ──────────────────────────────────────────────────────────────
+
+    Schedule:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        church_id:
+          $ref: "#/components/schemas/UUID"
+        sunday_date:
+          $ref: "#/components/schemas/Date"
+        status:
+          type: string
+          enum: [draft, published, cancelled]
+        created_by:
+          $ref: "#/components/schemas/MemberSummary"
+        approved_by:
+          $ref: "#/components/schemas/MemberSummary"
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        published_at:
+          $ref: "#/components/schemas/Timestamp"
+          nullable: true
+        slots:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScheduleSlot"
+        created_at:
+          $ref: "#/components/schemas/Timestamp"
+
+    ScheduleSummary:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        sunday_date:
+          $ref: "#/components/schemas/Date"
+        status:
+          type: string
+          enum: [draft, published, cancelled]
+        slot_count:
+          type: integer
+        published_at:
+          $ref: "#/components/schemas/Timestamp"
+          nullable: true
+
+    ScheduleCreate:
+      type: object
+      required: [sunday_date]
+      properties:
+        sunday_date:
+          $ref: "#/components/schemas/Date"
+        notes:
+          type: string
+          nullable: true
+
+    ScheduleUpdate:
+      type: object
+      properties:
+        notes:
+          type: string
+          nullable: true
+
+    ScheduleSlot:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        schedule_id:
+          $ref: "#/components/schemas/UUID"
+        member:
+          $ref: "#/components/schemas/MemberSummary"
+        instrument:
+          $ref: "#/components/schemas/Instrument"
+          nullable: true
+        function_in_scale:
+          type: string
+          example: "Acoustic Guitar"
+        confirmed:
+          type: boolean
+        notified_at:
+          $ref: "#/components/schemas/Timestamp"
+          nullable: true
+
+    ScheduleSlotAdd:
+      type: object
+      required: [member_id, function_in_scale]
+      properties:
+        member_id:
+          $ref: "#/components/schemas/UUID"
+        instrument_id:
+          $ref: "#/components/schemas/UUID"
+          nullable: true
+        function_in_scale:
+          type: string
+          example: "Acoustic Guitar"
+
+    ScheduleSuggestion:
+      type: object
+      properties:
+        sunday_date:
+          $ref: "#/components/schemas/Date"
+        suggested_slots:
+          type: array
+          items:
+            type: object
+            properties:
+              member_id:
+                $ref: "#/components/schemas/UUID"
+              member_name:
+                type: string
+              instrument_id:
+                $ref: "#/components/schemas/UUID"
+              instrument_name:
+                type: string
+              warning:
+                type: string
+                nullable: true
+                enum: [consecutive_sunday, null]
+        available_members:
+          type: array
+          items:
+            $ref: "#/components/schemas/MemberSummary"
+        unavailable_members:
+          type: array
+          items:
+            type: object
+            properties:
+              member:
+                $ref: "#/components/schemas/MemberSummary"
+              reason:
+                type: string
+                nullable: true
+
+    # ── INVENTORY ─────────────────────────────────────────────────────────────
+
+    ItemCategory:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        church_id:
+          $ref: "#/components/schemas/UUID"
+        name:
+          type: string
+          example: "Instruments"
+        icon:
+          type: string
+          nullable: true
+          example: "guitar"
+
+    ItemCategoryCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        icon:
+          type: string
+          nullable: true
+
+    Item:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        church_id:
+          $ref: "#/components/schemas/UUID"
+        category:
+          $ref: "#/components/schemas/ItemCategory"
+          nullable: true
+        item_type:
+          type: string
+          enum: [asset, consumable]
+        name:
+          type: string
+          example: "Yamaha FG800 Acoustic Guitar"
+        description:
+          type: string
+          nullable: true
+        asset_number:
+          type: string
+          nullable: true
+          example: "INST-001"
+        photo_url:
+          type: string
+          nullable: true
+          description: "Pre-signed URL valid for 1 hour"
+        location:
+          type: string
+          example: "Main Hall"
+        status:
+          type: string
+          enum: [available, on_loan, maintenance]
+        quantity:
+          type: integer
+          example: 1
+        qty_min_alert:
+          type: integer
+          nullable: true
+        serial_number:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        created_at:
+          $ref: "#/components/schemas/Timestamp"
+        updated_at:
+          $ref: "#/components/schemas/Timestamp"
+
+    ItemCreate:
+      type: object
+      required: [item_type, name, location]
+      properties:
+        item_type:
+          type: string
+          enum: [asset, consumable]
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        category_id:
+          $ref: "#/components/schemas/UUID"
+          nullable: true
+        asset_number:
+          type: string
+          nullable: true
+          description: "Required for assets. Auto-generated if omitted."
+        location:
+          type: string
+        quantity:
+          type: integer
+          default: 1
+        qty_min_alert:
+          type: integer
+          nullable: true
+        serial_number:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    ItemUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        category_id:
+          $ref: "#/components/schemas/UUID"
+          nullable: true
+        location:
+          type: string
+        status:
+          type: string
+          enum: [available, on_loan, maintenance]
+        quantity:
+          type: integer
+        qty_min_alert:
+          type: integer
+          nullable: true
+        serial_number:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    ItemDispose:
+      type: object
+      required: [deletion_reason]
+      properties:
+        deletion_reason:
+          type: string
+          enum: [discarded, donated]
+        notes:
+          type: string
+          nullable: true
+
+    Loan:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        item:
+          $ref: "#/components/schemas/Item"
+        requested_by:
+          $ref: "#/components/schemas/MemberSummary"
+        approved_by:
+          $ref: "#/components/schemas/MemberSummary"
+          nullable: true
+        loan_to_type:
+          type: string
+          enum: [church, member]
+        loan_to_id:
+          $ref: "#/components/schemas/UUID"
+        loan_to_name:
+          type: string
+          description: "Resolved name of the church or member"
+          example: "Congregação Vila Nova"
+        status:
+          type: string
+          enum: [pending, active, returned, returned_with_issue, rejected]
+        expected_return_date:
+          $ref: "#/components/schemas/Date"
+          nullable: true
+        actual_return_date:
+          $ref: "#/components/schemas/Date"
+          nullable: true
+        return_condition:
+          type: string
+          nullable: true
+          enum: [good, damaged, lost]
+        return_notes:
+          type: string
+          nullable: true
+        created_at:
+          $ref: "#/components/schemas/Timestamp"
+        returned_at:
+          $ref: "#/components/schemas/Timestamp"
+          nullable: true
+
+    LoanCreate:
+      type: object
+      required: [item_id, loan_to_type, loan_to_id]
+      properties:
+        item_id:
+          $ref: "#/components/schemas/UUID"
+        loan_to_type:
+          type: string
+          enum: [church, member]
+        loan_to_id:
+          $ref: "#/components/schemas/UUID"
+        expected_return_date:
+          $ref: "#/components/schemas/Date"
+          nullable: true
+
+    LoanReturn:
+      type: object
+      required: [return_condition]
+      properties:
+        return_condition:
+          type: string
+          enum: [good, damaged, lost]
+        return_notes:
+          type: string
+          nullable: true
+
+    # ── AUTH ──────────────────────────────────────────────────────────────────
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+
+    LoginResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: "JWT. Valid for 15 minutes."
+        member:
+          $ref: "#/components/schemas/Member"
+        church:
+          $ref: "#/components/schemas/Church"
+
+    RefreshResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: "New JWT. Valid for 15 minutes. Refresh token cookie is rotated."
+
+    # ── NOTIFICATION ──────────────────────────────────────────────────────────
+
+    Notification:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        channel:
+          type: string
+          enum: [email, push]
+        template:
+          type: string
+        reference_type:
+          type: string
+          nullable: true
+        reference_id:
+          $ref: "#/components/schemas/UUID"
+          nullable: true
+        status:
+          type: string
+          enum: [queued, sent, failed]
+        sent_at:
+          $ref: "#/components/schemas/Timestamp"
+          nullable: true
+        created_at:
+          $ref: "#/components/schemas/Timestamp"
+
+  # ===========================================================================
+  # RESPONSES
+  # ===========================================================================
+  responses:
+    Unauthorized:
+      description: Missing or invalid access token
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Forbidden:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Conflict:
+      description: Conflict with existing resource
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    UnprocessableEntity:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+# =============================================================================
+# PATHS
+# =============================================================================
+paths:
+
+  # ── AUTH ────────────────────────────────────────────────────────────────────
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login successful. Refresh token set as HttpOnly cookie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh access token
+      security: []
+      description: Uses the refresh_token HttpOnly cookie. Returns a new access token and rotates the refresh token cookie.
+      responses:
+        "200":
+          description: New access token issued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RefreshResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout (revoke current session)
+      responses:
+        "204":
+          description: Session revoked.
+
+  /auth/logout-all:
+    post:
+      tags: [Auth]
+      summary: Logout all sessions
+      responses:
+        "204":
+          description: All sessions revoked.
+
+  # ── CHURCHES ────────────────────────────────────────────────────────────────
+
+  /churches/me:
+    get:
+      tags: [Churches]
+      summary: Get current member's primary church
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Church"
+          description: OK
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      tags: [Churches]
+      summary: Update church info
+      description: "Required role: pastor"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChurchUpdate"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Church"
+          description: Updated
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /churches/me/congregations:
+    get:
+      tags: [Churches]
+      summary: List congregations
+      description: "Required role: leadership"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Church"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Churches]
+      summary: Add congregation
+      description: "Required role: pastor"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CongregationCreate"
+      responses:
+        "201":
+          description: Congregation created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Church"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # ── MEMBERS ─────────────────────────────────────────────────────────────────
+
+  /members:
+    get:
+      tags: [Members]
+      summary: List members
+      description: "Required role: leadership"
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [pastor, leadership, musician, member]
+        - name: is_active
+          in: query
+          schema:
+            type: boolean
+            default: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Member"
+                  meta:
+                    $ref: "#/components/schemas/PaginationMeta"
+    post:
+      tags: [Members]
+      summary: Create member and send invite email
+      description: "Required role: leadership"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemberCreate"
+      responses:
+        "201":
+          description: Member created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Member"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /members/import:
+    post:
+      tags: [Members]
+      summary: Bulk import members from CSV
+      description: "Required role: leadership. CSV columns: name, email, phone (optional)"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [members]
+              properties:
+                members:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/MemberImportRow"
+      responses:
+        "200":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemberImportResult"
+
+  /members/me:
+    get:
+      tags: [Members]
+      summary: Get own profile
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Member"
+    put:
+      tags: [Members]
+      summary: Update own profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemberUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Member"
+
+  /members/me/instruments:
+    get:
+      tags: [Members]
+      summary: List own instruments
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MemberInstrument"
+    post:
+      tags: [Members]
+      summary: Add instrument to own profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemberInstrumentAdd"
+      responses:
+        "201":
+          description: Added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemberInstrument"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /members/me/instruments/{instrument_id}:
+    delete:
+      tags: [Members]
+      summary: Remove instrument from own profile
+      parameters:
+        - name: instrument_id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "204":
+          description: Removed
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /members/{id}:
+    get:
+      tags: [Members]
+      summary: Get member detail
+      description: "Required role: leadership"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Member"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Members]
+      summary: Update member
+      description: "Required role: leadership"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemberUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Member"
+    delete:
+      tags: [Members]
+      summary: Deactivate member
+      description: "Required role: pastor. Sets is_active = false. Record is kept."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "204":
+          description: Deactivated
+
+  /members/{id}/roles:
+    get:
+      tags: [Members]
+      summary: List roles assigned to member
+      description: "Required role: leadership"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/RoleSummary"
+    post:
+      tags: [Members]
+      summary: Assign role to member
+      description: "Required role: leadership"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoleAssign"
+      responses:
+        "201":
+          description: Role assigned
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /members/{id}/roles/{role_id}:
+    delete:
+      tags: [Members]
+      summary: Remove role from member
+      description: "Required role: leadership"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+        - name: role_id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "204":
+          description: Role removed
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ── ROLES ───────────────────────────────────────────────────────────────────
+
+  /roles:
+    get:
+      tags: [Roles]
+      summary: List all roles
+      description: "Required role: leadership. Returns system roles + church custom roles."
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Role"
+    post:
+      tags: [Roles]
+      summary: Create custom role
+      description: "Required role: pastor"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoleCreate"
+      responses:
+        "201":
+          description: Role created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Role"
+
+  /roles/{id}:
+    put:
+      tags: [Roles]
+      summary: Update custom role
+      description: "Required role: pastor. System roles cannot be updated."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoleCreate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Role"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    delete:
+      tags: [Roles]
+      summary: Delete custom role
+      description: "Required role: pastor. System roles cannot be deleted."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "204":
+          description: Deleted
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # ── INSTRUMENTS ─────────────────────────────────────────────────────────────
+
+  /instruments:
+    get:
+      tags: [Instruments]
+      summary: List all instruments
+      description: "Returns system defaults + church custom instruments."
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Instrument"
+    post:
+      tags: [Instruments]
+      summary: Create custom instrument
+      description: "Required role: leadership"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InstrumentCreate"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Instrument"
+
+  /instruments/{id}:
+    delete:
+      tags: [Instruments]
+      summary: Delete custom instrument
+      description: "Required role: leadership. System instruments cannot be deleted."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "204":
+          description: Deleted
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # ── AGENDA ──────────────────────────────────────────────────────────────────
+
+  /agenda/slots:
+    get:
+      tags: [Agenda]
+      summary: List pastor's availability slots
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AvailabilitySlot"
+    post:
+      tags: [Agenda]
+      summary: Create availability slot
+      description: "Required role: pastor"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AvailabilitySlotCreate"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailabilitySlot"
+
+  /agenda/slots/{id}:
+    put:
+      tags: [Agenda]
+      summary: Update availability slot
+      description: "Required role: pastor"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AvailabilitySlotCreate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailabilitySlot"
+    delete:
+      tags: [Agenda]
+      summary: Remove availability slot
+      description: "Required role: pastor"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "204":
+          description: Deleted
+
+  /agenda/events:
+    get:
+      tags: [Agenda]
+      summary: List events
+      description: |
+        Members see only confirmed events.
+        Leadership and above see all statuses.
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [requested, confirmed, declined, cancelled]
+        - name: from
+          in: query
+          schema:
+            $ref: "#/components/schemas/Date"
+        - name: to
+          in: query
+          schema:
+            $ref: "#/components/schemas/Date"
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/EventSummary"
+                  meta:
+                    $ref: "#/components/schemas/PaginationMeta"
+    post:
+      tags: [Agenda]
+      summary: Request an appointment
+      description: "Any authenticated member can request. Status starts as 'requested'."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventCreate"
+      responses:
+        "201":
+          description: Request created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+
+  /agenda/events/{id}:
+    get:
+      tags: [Agenda]
+      summary: Get event detail
+      description: "Members can only see confirmed events. Leadership sees all."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Agenda]
+      summary: Update event
+      description: "Required role: pastor"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+
+  /agenda/events/{id}/confirm:
+    post:
+      tags: [Agenda]
+      summary: Confirm event
+      description: "Required role: pastor. Sends Google Calendar invite to attendees."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "200":
+          description: Confirmed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /agenda/events/{id}/decline:
+    post:
+      tags: [Agenda]
+      summary: Decline event request
+      description: "Required role: pastor. Sends email to requester with decline_reason."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventDecline"
+      responses:
+        "200":
+          description: Declined
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+
+  /agenda/events/{id}/cancel:
+    post:
+      tags: [Agenda]
+      summary: Cancel confirmed event
+      description: "Required role: pastor. Cancels Google Calendar invite."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "200":
+          description: Cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+
+  /agenda/events/{id}/attendees:
+    get:
+      tags: [Agenda]
+      summary: List attendees
+      description: "Required role: leadership"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/EventAttendee"
+    post:
+      tags: [Agenda]
+      summary: Add attendee
+      description: "Required role: pastor"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventAttendeeAdd"
+      responses:
+        "201":
+          description: Attendee added
+
+  # ── AVAILABILITY EXCEPTIONS ──────────────────────────────────────────────────
+
+  /availability/exceptions:
+    get:
+      tags: [Worship]
+      summary: List own unavailability exceptions
+      parameters:
+        - name: month
+          in: query
+          schema:
+            type: string
+            example: "2025-05"
+            description: "YYYY-MM format. Defaults to current month."
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AvailabilityException"
+    post:
+      tags: [Worship]
+      summary: Mark a Sunday as unavailable
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AvailabilityExceptionCreate"
+      responses:
+        "201":
+          description: Exception created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailabilityException"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /availability/exceptions/{id}:
+    delete:
+      tags: [Worship]
+      summary: Remove unavailability exception
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "204":
+          description: Removed
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /availability/exceptions/all:
+    get:
+      tags: [Worship]
+      summary: List all exceptions for the church
+      description: "Required role: leadership. Used by the schedule suggestion engine."
+      parameters:
+        - name: month
+          in: query
+          required: true
+          schema:
+            type: string
+            example: "2025-05"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AvailabilityExceptionWithMember"
+
+  # ── SCHEDULES ───────────────────────────────────────────────────────────────
+
+  /schedules:
+    get:
+      tags: [Worship]
+      summary: List schedules
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 12
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, published, cancelled]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ScheduleSummary"
+                  meta:
+                    $ref: "#/components/schemas/PaginationMeta"
+    post:
+      tags: [Worship]
+      summary: Create schedule (draft)
+      description: "Required role: leadership"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScheduleCreate"
+      responses:
+        "201":
+          description: Schedule created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Schedule"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /schedules/suggest/{sunday_date}:
+    get:
+      tags: [Worship]
+      summary: Get auto-suggestion for a Sunday
+      description: "Required role: leadership. See ARCHITECTURE.md section 6 for algorithm details."
+      parameters:
+        - name: sunday_date
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/Date"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScheduleSuggestion"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+
+  /schedules/{id}:
+    get:
+      tags: [Worship]
+      summary: Get schedule with all slots
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Schedule"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Worship]
+      summary: Update schedule metadata
+      description: "Required role: leadership"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScheduleUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Schedule"
+    delete:
+      tags: [Worship]
+      summary: Cancel schedule
+      description: "Required role: leadership"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "204":
+          description: Cancelled
+
+  /schedules/{id}/publish:
+    post:
+      tags: [Worship]
+      summary: Publish schedule
+      description: "Required role: leadership. Sends email notification to all members in slots."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "200":
+          description: Published
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Schedule"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+
+  /schedules/{id}/slots:
+    get:
+      tags: [Worship]
+      summary: List slots in schedule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ScheduleSlot"
+    post:
+      tags: [Worship]
+      summary: Add member to schedule
+      description: "Required role: leadership"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScheduleSlotAdd"
+      responses:
+        "201":
+          description: Slot added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScheduleSlot"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /schedules/{id}/slots/{slot_id}:
+    delete:
+      tags: [Worship]
+      summary: Remove member from schedule
+      description: "Required role: leadership"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+        - name: slot_id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "204":
+          description: Removed
+
+  /schedules/{id}/slots/{slot_id}/confirm:
+    post:
+      tags: [Worship]
+      summary: Member confirms own slot
+      description: "Required role: musician. Member can only confirm their own slot."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+        - name: slot_id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "200":
+          description: Confirmed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScheduleSlot"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # ── INVENTORY ───────────────────────────────────────────────────────────────
+
+  /inventory/categories:
+    get:
+      tags: [Inventory]
+      summary: List item categories
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ItemCategory"
+    post:
+      tags: [Inventory]
+      summary: Create category
+      description: "Required role: leadership"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ItemCategoryCreate"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItemCategory"
+
+  /inventory/categories/{id}:
+    put:
+      tags: [Inventory]
+      summary: Update category
+      description: "Required role: leadership"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ItemCategoryCreate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItemCategory"
+    delete:
+      tags: [Inventory]
+      summary: Delete category
+      description: "Required role: leadership"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "204":
+          description: Deleted
+
+  /inventory/items:
+    get:
+      tags: [Inventory]
+      summary: List items
+      description: "Excludes soft-deleted items by default. Photo URLs are pre-signed (1h TTL)."
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: category_id
+          in: query
+          schema:
+            $ref: "#/components/schemas/UUID"
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [available, on_loan, maintenance]
+        - name: item_type
+          in: query
+          schema:
+            type: string
+            enum: [asset, consumable]
+        - name: include_deleted
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: "Required role: leadership"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Item"
+                  meta:
+                    $ref: "#/components/schemas/PaginationMeta"
+    post:
+      tags: [Inventory]
+      summary: Create item
+      description: "Required role: leadership"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ItemCreate"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Item"
+
+  /inventory/items/{id}:
+    get:
+      tags: [Inventory]
+      summary: Get item detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Item"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Inventory]
+      summary: Update item
+      description: "Required role: leadership"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ItemUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Item"
+
+  /inventory/items/{id}/photo:
+    post:
+      tags: [Inventory]
+      summary: Upload item photo
+      description: "Required role: leadership. Multipart upload. Max 5MB. Stored in Cloudflare R2."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                photo:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Photo uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  photo_url:
+                    type: string
+
+  /inventory/items/{id}/discard:
+    post:
+      tags: [Inventory]
+      summary: Discard item (soft delete)
+      description: "Required role: leadership. Sets deleted_at and deletion_reason = discarded."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ItemDispose"
+      responses:
+        "204":
+          description: Discarded
+
+  /inventory/items/{id}/donate:
+    post:
+      tags: [Inventory]
+      summary: Mark item as donated (soft delete)
+      description: "Required role: leadership. Sets deleted_at and deletion_reason = donated."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ItemDispose"
+      responses:
+        "204":
+          description: Donated
+
+  /inventory/loans:
+    get:
+      tags: [Inventory]
+      summary: List all loans
+      description: "Required role: leadership"
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, active, returned, returned_with_issue, rejected]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Loan"
+                  meta:
+                    $ref: "#/components/schemas/PaginationMeta"
+    post:
+      tags: [Inventory]
+      summary: Request a loan
+      description: "Any authenticated member can request. Status starts as pending."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoanCreate"
+      responses:
+        "201":
+          description: Loan requested
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Loan"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /inventory/loans/{id}:
+    get:
+      tags: [Inventory]
+      summary: Get loan detail
+      description: "Required role: leadership"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Loan"
+
+  /inventory/loans/{id}/approve:
+    post:
+      tags: [Inventory]
+      summary: Approve loan request
+      description: "Required role: leadership. Sets status = active. Sends email to borrower."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Loan"
+
+  /inventory/loans/{id}/reject:
+    post:
+      tags: [Inventory]
+      summary: Reject loan request
+      description: "Required role: leadership. Sets status = rejected. Sends email to requester."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "200":
+          description: Rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Loan"
+
+  /inventory/loans/{id}/return:
+    post:
+      tags: [Inventory]
+      summary: Register item return
+      description: |
+        Required role: leadership.
+        If return_condition is damaged or lost, item status is automatically
+        set to maintenance.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoanReturn"
+      responses:
+        "200":
+          description: Return registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Loan"
+
+  # ── NOTIFICATIONS ───────────────────────────────────────────────────────────
+
+  /notifications:
+    get:
+      tags: [Notifications]
+      summary: List own notifications
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 30
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Notification"
+                  meta:
+                    $ref: "#/components/schemas/PaginationMeta"
+
+# =============================================================================
+# TAGS (display order in docs)
+# =============================================================================
+tags:
+  - name: Auth
+    description: Authentication and session management
+  - name: Churches
+    description: Church and congregation management
+  - name: Members
+    description: Member profiles, roles and instruments
+  - name: Roles
+    description: Role management
+  - name: Instruments
+    description: Instrument catalogue
+  - name: Agenda
+    description: Pastoral calendar and appointment requests
+  - name: Worship
+    description: Worship schedule, availability and suggestions
+  - name: Inventory
+    description: Asset and consumable tracking, loans
+  - name: Notifications
+    description: Notification log
