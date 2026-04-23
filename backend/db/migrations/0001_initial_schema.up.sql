@@ -548,3 +548,25 @@ INSERT INTO instruments (id, church_id, name, is_system) VALUES
     (gen_random_uuid(), NULL, 'Flute',           TRUE),
     (gen_random_uuid(), NULL, 'Sound Engineer',  TRUE),
     (gen_random_uuid(), NULL, 'Media/Slides',    TRUE);
+
+
+-- =============================================================================
+-- AUTH — REFRESH TOKENS
+-- Stored server-side to support rotation and revocation.
+-- =============================================================================
+
+CREATE TABLE refresh_tokens (
+    id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    member_id   UUID        NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+    jti         UUID        NOT NULL UNIQUE,   -- JWT ID claim
+    expires_at  TIMESTAMPTZ NOT NULL,
+    revoked_at  TIMESTAMPTZ,                   -- NULL = still valid
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE  refresh_tokens          IS 'One row per active refresh token. Revoked or expired rows may be purged by a nightly job.';
+COMMENT ON COLUMN refresh_tokens.jti      IS 'Unique JWT ID embedded in the refresh token claim. Used for O(1) lookup on rotation.';
+COMMENT ON COLUMN refresh_tokens.revoked_at IS 'Non-NULL = token was explicitly revoked (logout or rotation).';
+
+CREATE INDEX idx_refresh_tokens_jti    ON refresh_tokens(jti);
+CREATE INDEX idx_refresh_tokens_member ON refresh_tokens(member_id);

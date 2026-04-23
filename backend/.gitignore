@@ -1,0 +1,26 @@
+# ── Binaries ──────────────────────────────────────────────────────────────────
+/server
+/cmd/api/api
+*.exe
+*.out
+
+# ── Environment & secrets ──────────────────────────────────────────────────────
+.env
+.env.local
+keys/
+*.pem
+
+# ── Go toolchain ───────────────────────────────────────────────────────────────
+vendor/
+
+# ── sqlc generated output ─────────────────────────────────────────────────────
+# Keep the directory via .gitkeep but ignore generated Go files
+internal/adapters/postgres/generated/*.go
+
+# ── Editor / OS ───────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
