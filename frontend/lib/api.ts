@@ -498,5 +498,16 @@ export async function listInstruments(): Promise<{ data: Instrument[] }> {
   return apiFetch("/instruments");
 }
 
+export async function assignRole(memberId: string, roleId: string): Promise<void> {
+  return apiFetch(`/members/${memberId}/roles`, {
+    method: "POST",
+    body: JSON.stringify({ role_id: roleId }),
+  });
+}
+
+export async function removeRole(memberId: string, roleId: string): Promise<void> {
+  return apiFetch(`/members/${memberId}/roles/${roleId}`, { method: "DELETE" });
+}
+
 // Re-export setSession so callers can store the session after login
 export { setSession } from "./auth";

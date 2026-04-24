@@ -162,7 +162,94 @@ If you detect an error in another service that requires a change in that service
 - Modify `../contracts/` files
 - Touch anything in `../backend/`
 
+## patterns
+
+### api client (`lib/api.ts`)
+- All public API functions call internal `apiFetch<T>(path, options)` — never `fetch()` directly
+- `login()` is the only exception: it calls `fetch()` raw (no auth header needed on login)
+- Query params always built with `URLSearchParams`, appended as template literal: `` `/members?${qs}` ``
+- Skip `Content-Type` when body is `FormData` — browser sets boundary automatically
+- On 401: `doRefresh()` → retry once → if still failing, throw `UNAUTHORIZED`
+- Error shape thrown: `{ error: { code: string; message: string; field?: string | null } }` (matches `ApiError`)
+- 204 responses return `undefined as T`
+- `setSession` is re-exported from `lib/auth.ts` so callers only import from `lib/api`
+- Types are defined inline in `lib/api.ts` (not yet moved to generated `lib/api-types.ts`)
+
+### auth (`lib/auth.ts`)
+- Three module-level `let` vars: `accessToken`, `currentMember`, `currentChurch`
+- Public API: `getAccessToken()`, `setSession(token, member, church)`, `getSession()`, `clearSession()`
+- Types (`Member`, `Church`) imported from `./api`
+- Session is reset entirely on `clearSession()` — no partial state
+
+### forms (pattern from `app/(auth)/login/page.tsx`)
+```tsx
+"use client";
+const schema = z.object({ ... });
+type FormValues = z.infer<typeof schema>;
+
+const [serverError, setServerError] = useState<string | null>(null);
+const { register, handleSubmit, formState: { errors, isSubmitting } } =
+  useForm<FormValues>({ resolver: zodResolver(schema) });
+
+async function onSubmit(values: FormValues) {
+  setServerError(null);                          // clear on each attempt
+  try { ... } catch (err) {
+    const e = err as ApiError;
+    setServerError(e?.error?.message ?? "Erro genérico.");
+  }
+}
+```
+- Field errors: `<p className="text-xs text-destructive">{errors.field.message}</p>`
+- Server errors: `<p className="text-sm text-destructive text-center">{serverError}</p>`
+- Submit button: `<Button disabled={isSubmitting}>{isSubmitting ? "Carregando…" : "Label"}</Button>`
+- Never reset form on failed submission
+
+### shadcn/ui primitives (`components/ui/`)
+- Pattern: `cva(base, { variants })` + `cn()` + `React.forwardRef` + `VariantProps`
+- Never modify files in `components/ui/` — extend in `components/features/`
+- Import path alias: `@/components/ui/button` (always `@/`, never relative)
+
+### error handling
+- Catch errors as `ApiError` type, access via `err?.error?.message`
+- Never expose `error.code` or technical strings to the user
+- Fallback copy in pt-BR: `"Erro inesperado. Tente novamente."`
+
+### imports
+- All internal imports use path alias `@/` (e.g. `@/lib/api`, `@/components/ui/button`)
+- Never use relative `../` inside `app/` or `components/`
+
+### layout
+- Font: Geist Sans + Geist Mono via `next/font/google`, injected as CSS vars
+- `<html>` classes: `${geistSans.variable} ${geistMono.variable} h-full antialiased`
+- `<body>` classes: `min-h-full flex flex-col`
+
 ## session protocol
 At the end of every session, update the ## implemented section
 of this CLAUDE.md with every endpoint or feature completed.
 Keep it as a flat list. Do not describe — just list.
+
+## implemented
+- Next.js 16 + React 19 + Tailwind v4 + TypeScript scaffold
+- lib/auth.ts — access token in memory, refresh token via HttpOnly cookie
+- lib/api.ts — typed fetch wrapper with 401→refresh→retry, all openapi.yaml endpoints
+- app/(auth)/login/page.tsx — login form (React Hook Form + Zod), redirects to /members
+- components/ui/button.tsx, input.tsx, label.tsx — shadcn/ui primitives
+- app/layout.tsx, app/page.tsx — root layout and redirect
+- .env.example, .gitignore
+- app/providers.tsx — QueryClientProvider (TanStack Query v5) + Sonner Toaster
+- components/ui/badge.tsx — badge with variants: default, secondary, destructive, outline, success, warning, muted
+- components/ui/skeleton.tsx — animate-pulse skeleton
+- components/ui/dialog.tsx — Radix Dialog (no tailwindcss-animate dependency)
+- components/ui/sonner.tsx — Sonner toast wrapper (position: bottom-center)
+- components/features/DashboardNav.tsx — bottom nav (mobile) + sidebar (desktop) with active state
+- app/(dashboard)/layout.tsx — dashboard shell
+- hooks/useDebounce.ts — debounce hook
+- hooks/useMembers.ts — useMembers, useMember, useRoles, useCreateMember, useUpdateMember, useDeactivateMember, useAssignRole, useRemoveRole
+- components/features/members/MemberCard.tsx — list card with avatar initials, roles, active badge
+- components/features/members/MemberCardSkeleton.tsx — loading skeleton for MemberCard
+- components/features/members/RoleBadge.tsx — colored badge per base_profile
+- components/features/members/DeactivateDialog.tsx — confirm dialog (destructive)
+- app/(dashboard)/members/page.tsx — list with search (debounced), role filter, pagination, empty/loading/error states
+- app/(dashboard)/members/[id]/page.tsx — detail: info, roles (assign/remove), instruments, deactivate with confirm
+- app/(dashboard)/members/new/page.tsx — create form (name, email, phone, birth_date)
+- lib/api.ts — added assignRole, removeRole functions

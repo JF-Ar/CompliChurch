@@ -34,7 +34,7 @@ export default function LoginPage() {
     try {
       const data = await login(values.email, values.password);
       setSession(data.access_token, data.member, data.church);
-      router.push("/dashboard");
+      router.push("/members");
     } catch (err) {
       const apiErr = err as ApiError;
       setServerError(apiErr?.error?.message ?? "Erro ao fazer login. Tente novamente.");
