@@ -145,6 +145,21 @@ If you detect an error in another service that requires a change in that service
    <description of the problem and what needs to be fixed>
    ---
 
+## logging
+- Use slog (stdlib) initialized in cmd/api/main.go as slog.SetDefault()
+- Format: JSON, output: stdout
+- Every log must include: time, level, msg, service="backend"
+- Request middleware injects request_id and church_id into context and logs
+  entry/exit of every request with: method, path, status, duration_ms
+- Services and adapters pull logger from context — never use global slog directly
+  except in main.go
+- Levels: DEBUG (dev only), INFO (requests, completed ops), WARN (retries,
+  degradation), ERROR (real failures)
+- Errors always as structured field, never interpolated in the message string:
+  slog.Error("failed to send email", "err", err, "member_id", memberID)  ← correct
+  slog.Error(fmt.Sprintf("failed: %v", err))                              ← wrong
+- LOG_LEVEL env var controls verbosity (debug | info | warn | error)
+
 ## do not
 - Write endpoints not listed in ARCHITECTURE.md section 5
 - Write raw SQL outside `internal/adapters/postgres/`

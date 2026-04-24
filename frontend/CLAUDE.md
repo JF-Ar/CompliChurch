@@ -144,6 +144,14 @@ If you detect an error in another service that requires a change in that service
    <description of the problem and what needs to be fixed>
    ---
 
+## logging
+- Create lib/logger.ts — thin wrapper over console that emits JSON to stdout
+- Every log must include: time, level, msg, service="frontend"
+- Use logger.info/warn/error/debug in server components and API routes only
+- Client components: console.error for real errors only — these go to the
+  browser, not the server, so they never reach the logging stack
+- Do not use console.log directly anywhere in server-side code
+
 ## do not
 - Call `fetch()` directly in components or hooks — use `lib/api.ts`
 - Store tokens in localStorage, sessionStorage, or any cookie you manage
