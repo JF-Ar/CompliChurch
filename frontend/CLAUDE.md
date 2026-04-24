@@ -161,3 +161,8 @@ If you detect an error in another service that requires a change in that service
 - Show UUIDs, error codes, or technical terms in UI copy
 - Modify `../contracts/` files
 - Touch anything in `../backend/`
+
+## session protocol
+At the end of every session, update the ## implemented section
+of this CLAUDE.md with every endpoint or feature completed.
+Keep it as a flat list. Do not describe — just list.

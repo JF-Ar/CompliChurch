@@ -170,3 +170,8 @@ If you detect an error in another service that requires a change in that service
 - Trust `church_id` from request body or query params
 - Modify `../contracts/` files
 - Touch anything in `../frontend/`
+
+## session protocol
+At the end of every session, update the ## implemented section
+of this CLAUDE.md with every endpoint or feature completed.
+Keep it as a flat list. Do not describe — just list.
