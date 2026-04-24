@@ -1,0 +1,9 @@
+FROM golang:1.25-alpine
+RUN go install github.com/air-verse/air@latest && \
+    go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest && \
+    apk add --no-cache ca-certificates
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+EXPOSE 8080
+CMD ["sh", "-c", "migrate -source file:///app/db/migrations -database \"$DATABASE_URL\" up && exec air"]
