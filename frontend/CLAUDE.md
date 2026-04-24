@@ -134,6 +134,16 @@ If you need a contract change (missing endpoint, missing field, wrong response s
    ```
 3. Wait. Do not proceed until the contract is updated.
 
+## cross-agent communication
+You can read logs from any container via `docker logs` or `docker compose logs`.
+If you detect an error in another service that requires a change in that service:
+1. Do not attempt to fix it yourself
+2. Output a ready-to-paste prompt block:
+   ---
+   PROMPT FOR: [backend|frontend] agent
+   <description of the problem and what needs to be fixed>
+   ---
+
 ## do not
 - Call `fetch()` directly in components or hooks — use `lib/api.ts`
 - Store tokens in localStorage, sessionStorage, or any cookie you manage
