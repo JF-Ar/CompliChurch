@@ -2,7 +2,9 @@
 set -e
 
 echo "Running database migrations..."
-migrate -path /app/db/migrations -database "$DATABASE_URL" up
+echo "Migrations directory contents:"
+ls /app/db/migrations
+migrate -source "file:///app/db/migrations" -database "$DATABASE_URL" up
 
 echo "Starting server..."
 exec /app/api

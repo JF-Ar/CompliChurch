@@ -54,6 +54,12 @@ func main() {
 	authSvc := services.NewAuthService(authRepo, privateKey, publicKey, cfg.JWTAccessTTL, cfg.JWTRefreshTTLDays)
 	authHandler := handlers.NewAuthHandler(authSvc, cfg.JWTRefreshTTLDays, cfg.Env == "production")
 
+	memberRepo := postgres.NewMemberRepo(pool)
+	memberSvc := services.NewMemberService(memberRepo, memberRepo, memberRepo, nil) // mailer wired in phase 2
+	memberHandler := handlers.NewMemberHandler(memberSvc)
+	roleHandler := handlers.NewRoleHandler(memberSvc)
+	instrumentHandler := handlers.NewInstrumentHandler(memberSvc)
+
 	r := chi.NewRouter()
 	r.Use(chimw.RequestID)
 	r.Use(chimw.RealIP)
@@ -73,11 +79,41 @@ func main() {
 			r.Post("/auth/logout", authHandler.Logout)
 			r.Post("/auth/logout-all", authHandler.LogoutAll)
 
-			// Additional domain routes will be mounted here as they are implemented:
-			// r.Mount("/members",   membersRouter(memberHandler))
-			// r.Mount("/churches",  churchesRouter(churchHandler))
-			// r.Mount("/schedules", schedulesRouter(scheduleHandler))
-			// r.Mount("/inventory", inventoryRouter(inventoryHandler))
+			// ── Members ───────────────────────────────────────────────────
+			r.Route("/members", func(r chi.Router) {
+				r.With(handlers.RequireProfile("leadership")).Get("/", memberHandler.ListMembers)
+				r.With(handlers.RequireProfile("leadership")).Post("/", memberHandler.CreateMember)
+				r.With(handlers.RequireProfile("leadership")).Post("/import", memberHandler.ImportMembers)
+
+				// /me routes must precede /{id} to avoid chi treating "me" as a param.
+				r.Get("/me", memberHandler.GetMe)
+				r.Put("/me", memberHandler.UpdateMe)
+				r.Get("/me/instruments", memberHandler.GetMyInstruments)
+				r.Post("/me/instruments", memberHandler.AddMyInstrument)
+				r.Delete("/me/instruments/{instrument_id}", memberHandler.RemoveMyInstrument)
+
+				r.With(handlers.RequireProfile("leadership")).Get("/{id}", memberHandler.GetMemberByID)
+				r.With(handlers.RequireProfile("leadership")).Put("/{id}", memberHandler.UpdateMemberByID)
+				r.With(handlers.RequireProfile("pastor")).Delete("/{id}", memberHandler.DeactivateMember)
+				r.With(handlers.RequireProfile("leadership")).Get("/{id}/roles", memberHandler.GetMemberRoles)
+				r.With(handlers.RequireProfile("leadership")).Post("/{id}/roles", memberHandler.AssignRole)
+				r.With(handlers.RequireProfile("leadership")).Delete("/{id}/roles/{role_id}", memberHandler.RemoveMemberRole)
+			})
+
+			// ── Roles ─────────────────────────────────────────────────────
+			r.Route("/roles", func(r chi.Router) {
+				r.With(handlers.RequireProfile("leadership")).Get("/", roleHandler.ListRoles)
+				r.With(handlers.RequireProfile("pastor")).Post("/", roleHandler.CreateRole)
+				r.With(handlers.RequireProfile("pastor")).Put("/{id}", roleHandler.UpdateRole)
+				r.With(handlers.RequireProfile("pastor")).Delete("/{id}", roleHandler.DeleteRole)
+			})
+
+			// ── Instruments ───────────────────────────────────────────────
+			r.Route("/instruments", func(r chi.Router) {
+				r.Get("/", instrumentHandler.ListInstruments)
+				r.With(handlers.RequireProfile("leadership")).Post("/", instrumentHandler.CreateInstrument)
+				r.With(handlers.RequireProfile("leadership")).Delete("/{id}", instrumentHandler.DeleteInstrument)
+			})
 		})
 	})
 
