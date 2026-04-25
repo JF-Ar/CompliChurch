@@ -391,6 +391,24 @@ export async function removeMyInstrument(instrumentId: string): Promise<void> {
   return apiFetch(`/members/me/instruments/${instrumentId}`, { method: "DELETE" });
 }
 
+export async function getMemberInstruments(memberId: string): Promise<{ data: MemberInstrument[] }> {
+  return apiFetch(`/members/${memberId}/instruments`);
+}
+
+export async function addMemberInstrument(
+  memberId: string,
+  data: MemberInstrumentAdd
+): Promise<MemberInstrument> {
+  return apiFetch(`/members/${memberId}/instruments`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function removeMemberInstrument(memberId: string, instrumentId: string): Promise<void> {
+  return apiFetch(`/members/${memberId}/instruments/${instrumentId}`, { method: "DELETE" });
+}
+
 // ── Schedules ─────────────────────────────────────────────────────────────────
 
 export async function listSchedules(params?: {

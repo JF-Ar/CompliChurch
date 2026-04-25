@@ -261,3 +261,8 @@ Keep it as a flat list. Do not describe — just list.
 - app/(dashboard)/members/me/page.tsx — own profile: view/edit name/phone/birth_date, roles (read-only), instruments (add/remove from catalog)
 - lib/api.ts — added getMyInstruments, addMyInstrument, removeMyInstrument, createRole, updateRole, deleteRole, createInstrument, deleteInstrument, MemberInstrumentAdd type
 - hooks/useMembers.ts — added useMe, useUpdateMe, useMyInstruments, useAddInstrument, useRemoveInstrument, useInstruments; added meKeys and instrumentKeys
+- app/(dashboard)/members/me/page.tsx — instruments section: add/remove from catalog; first instrument auto-set is_primary: true
+- components/features/DashboardNav.tsx — added "Perfil" link to /members/me (bottom nav 5th item on mobile; pinned to sidebar bottom on desktop); fixed active-state logic so Membros doesn't highlight on /members/me
+- lib/api.ts — added getMemberInstruments, addMemberInstrument, removeMemberInstrument (GET/POST/DELETE /members/{id}/instruments)
+- hooks/useMembers.ts — added memberInstrumentKeys, useMemberInstruments, useAddMemberInstrument, useRemoveMemberInstrument
+- app/(dashboard)/members/[id]/page.tsx — instruments section now fully interactive: fetches via useMemberInstruments, shows remove button (leadership+ only), add dropdown (leadership+ only), 409 INSTRUMENT_ALREADY_ADDED shown as inline error

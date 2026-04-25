@@ -82,7 +82,10 @@ export default function MyProfilePage() {
   async function handleAddInstrument() {
     if (!selectedInstrumentId) return;
     try {
-      await addInstrument.mutateAsync({ instrument_id: selectedInstrumentId });
+      await addInstrument.mutateAsync({
+        instrument_id: selectedInstrumentId,
+        is_primary: myInstruments.length === 0,
+      });
       toast.success("Instrumento adicionado.");
       setSelectedInstrumentId("");
     } catch (err) {

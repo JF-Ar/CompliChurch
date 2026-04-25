@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Users, Calendar, CalendarDays, Package } from "lucide-react";
+import { Users, Calendar, CalendarDays, Package, UserCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
@@ -21,7 +21,7 @@ export function DashboardNav() {
       <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background md:hidden">
         <div className="flex">
           {NAV_ITEMS.map(({ href, label, Icon }) => {
-            const active = pathname.startsWith(href);
+            const active = pathname === href || (pathname.startsWith(href + "/") && !pathname.startsWith("/members/me"));
             return (
               <Link
                 key={href}
@@ -36,6 +36,16 @@ export function DashboardNav() {
               </Link>
             );
           })}
+          <Link
+            href="/members/me"
+            className={cn(
+              "flex flex-1 flex-col items-center gap-1 py-2 text-xs transition-colors",
+              pathname === "/members/me" ? "text-primary" : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <UserCircle className="h-5 w-5" />
+            <span>Perfil</span>
+          </Link>
         </div>
       </nav>
 
@@ -44,7 +54,7 @@ export function DashboardNav() {
         <div className="px-4 py-5 text-sm font-semibold border-b">Igreja Organizada</div>
         <nav className="flex flex-col gap-1 p-2 pt-3">
           {NAV_ITEMS.map(({ href, label, Icon }) => {
-            const active = pathname.startsWith(href);
+            const active = pathname === href || (pathname.startsWith(href + "/") && !pathname.startsWith("/members/me"));
             return (
               <Link
                 key={href}
@@ -62,6 +72,20 @@ export function DashboardNav() {
             );
           })}
         </nav>
+        <div className="mt-auto border-t p-2">
+          <Link
+            href="/members/me"
+            className={cn(
+              "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+              pathname === "/members/me"
+                ? "bg-accent text-foreground font-medium"
+                : "text-muted-foreground hover:bg-accent hover:text-foreground"
+            )}
+          >
+            <UserCircle className="h-4 w-4 shrink-0" />
+            Meu Perfil
+          </Link>
+        </div>
       </aside>
     </>
   );

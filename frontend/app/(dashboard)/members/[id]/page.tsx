@@ -9,12 +9,17 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { ChevronLeft, Music, X, UserMinus, Pencil } from "lucide-react";
 import {
+  useMe,
   useMember,
   useUpdateMember,
   useDeactivateMember,
   useAssignRole,
   useRemoveRole,
   useRoles,
+  useMemberInstruments,
+  useAddMemberInstrument,
+  useRemoveMemberInstrument,
+  useInstruments,
 } from "@/hooks/useMembers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,14 +49,25 @@ export default function MemberDetailPage() {
   const router = useRouter();
   const [showDeactivate, setShowDeactivate] = useState(false);
   const [selectedRoleId, setSelectedRoleId] = useState("");
+  const [selectedInstrumentId, setSelectedInstrumentId] = useState("");
+  const [instrumentError, setInstrumentError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
 
   const { data: member, isLoading, isError } = useMember(id);
+  const { data: meData } = useMe();
   const { data: rolesData } = useRoles();
+  const { data: memberInstrumentsData, isLoading: instrLoading } = useMemberInstruments(id);
+  const { data: catalogData } = useInstruments();
   const updateMember = useUpdateMember(id);
   const deactivate = useDeactivateMember();
   const assignRole = useAssignRole(id);
   const removeRole = useRemoveRole(id);
+  const addMemberInstr = useAddMemberInstrument(id);
+  const removeMemberInstr = useRemoveMemberInstrument(id);
+
+  const isLeadership = meData?.roles.some(
+    (r) => r.base_profile === "leadership" || r.base_profile === "pastor"
+  ) ?? false;
 
   const {
     register,
@@ -119,6 +135,33 @@ export default function MemberDetailPage() {
     }
   }
 
+  async function handleAddMemberInstrument() {
+    if (!selectedInstrumentId) return;
+    setInstrumentError(null);
+    try {
+      await addMemberInstr.mutateAsync({ instrument_id: selectedInstrumentId, is_primary: false });
+      toast.success("Instrumento adicionado.");
+      setSelectedInstrumentId("");
+    } catch (err) {
+      const e = err as ApiError;
+      if (e?.error?.code === "INSTRUMENT_ALREADY_ADDED") {
+        setInstrumentError("Este instrumento já está cadastrado para este membro.");
+      } else {
+        toast.error(e?.error?.message ?? "Não foi possível adicionar o instrumento.");
+      }
+    }
+  }
+
+  async function handleRemoveMemberInstrument(instrumentId: string, instrumentName: string) {
+    try {
+      await removeMemberInstr.mutateAsync(instrumentId);
+      toast.success(`"${instrumentName}" removido.`);
+    } catch (err) {
+      const e = err as ApiError;
+      toast.error(e?.error?.message ?? "Não foi possível remover o instrumento.");
+    }
+  }
+
   // ── Loading ────────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
@@ -155,6 +198,12 @@ export default function MemberDetailPage() {
 
   const assignedRoleIds = new Set(member.roles.map((r) => r.id));
   const availableRoles = (rolesData?.data ?? []).filter((r) => !assignedRoleIds.has(r.id));
+
+  const memberInstruments = memberInstrumentsData?.data ?? [];
+  const memberInstrumentIds = new Set(memberInstruments.map((i) => i.instrument_id));
+  const availableInstruments = (catalogData?.data ?? []).filter(
+    (i) => !memberInstrumentIds.has(i.id)
+  );
 
   return (
     <>
@@ -307,14 +356,17 @@ export default function MemberDetailPage() {
           )}
         </div>
 
-        {/* Instruments — read-only on other member's profile */}
+        {/* Instruments */}
         <div className="rounded-lg border bg-card p-4 space-y-3">
           <h2 className="text-base font-semibold">Instrumentos</h2>
-          {member.instruments.length === 0 ? (
+
+          {instrLoading ? (
+            <Skeleton className="h-8 w-full" />
+          ) : memberInstruments.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum instrumento cadastrado.</p>
           ) : (
             <div className="flex flex-wrap gap-2">
-              {member.instruments.map((inst) => (
+              {memberInstruments.map((inst) => (
                 <div
                   key={inst.id}
                   className="flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm"
@@ -324,8 +376,54 @@ export default function MemberDetailPage() {
                   {inst.is_primary && (
                     <span className="text-xs text-muted-foreground">(principal)</span>
                   )}
+                  {isLeadership && (
+                    <button
+                      onClick={() =>
+                        handleRemoveMemberInstrument(inst.instrument_id, inst.instrument_name)
+                      }
+                      disabled={removeMemberInstr.isPending}
+                      className="ml-1 rounded-full p-0.5 text-muted-foreground hover:text-destructive disabled:opacity-40 transition-colors"
+                      aria-label={`Remover ${inst.instrument_name}`}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
                 </div>
               ))}
+            </div>
+          )}
+
+          {isLeadership && availableInstruments.length > 0 && (
+            <div className="space-y-1.5 pt-1">
+              <div className="flex gap-2">
+                <select
+                  value={selectedInstrumentId}
+                  onChange={(e) => {
+                    setSelectedInstrumentId(e.target.value);
+                    setInstrumentError(null);
+                  }}
+                  className="flex-1 h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  aria-label="Selecionar instrumento para adicionar"
+                >
+                  <option value="">Selecionar instrumento…</option>
+                  {availableInstruments.map((i) => (
+                    <option key={i.id} value={i.id}>
+                      {i.name}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  size="sm"
+                  onClick={handleAddMemberInstrument}
+                  disabled={!selectedInstrumentId || addMemberInstr.isPending}
+                  className="min-h-[44px]"
+                >
+                  {addMemberInstr.isPending ? "Adicionando…" : "Adicionar"}
+                </Button>
+              </div>
+              {instrumentError && (
+                <p className="text-xs text-destructive">{instrumentError}</p>
+              )}
             </div>
           )}
         </div>

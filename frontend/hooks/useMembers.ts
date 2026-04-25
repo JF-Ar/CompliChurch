@@ -12,6 +12,9 @@ import {
   getMyInstruments,
   addMyInstrument,
   removeMyInstrument,
+  getMemberInstruments,
+  addMemberInstrument,
+  removeMemberInstrument,
   listRoles,
   assignRole,
   removeRole,
@@ -36,6 +39,10 @@ export const roleKeys = {
 
 export const instrumentKeys = {
   all: ["instruments"] as const,
+};
+
+export const memberInstrumentKeys = {
+  list: (memberId: string) => ["members", memberId, "instruments"] as const,
 };
 
 // ── Members list & detail ─────────────────────────────────────────────────────
@@ -152,6 +159,38 @@ export function useRemoveRole(memberId: string) {
   return useMutation({
     mutationFn: (roleId: string) => removeRole(memberId, roleId),
     onSuccess: () => qc.invalidateQueries({ queryKey: memberKeys.detail(memberId) }),
+  });
+}
+
+// ── Member instruments (leadership-managed) ───────────────────────────────────
+
+export function useMemberInstruments(memberId: string) {
+  return useQuery({
+    queryKey: memberInstrumentKeys.list(memberId),
+    queryFn: () => getMemberInstruments(memberId),
+    enabled: !!memberId,
+  });
+}
+
+export function useAddMemberInstrument(memberId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: MemberInstrumentAdd) => addMemberInstrument(memberId, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: memberInstrumentKeys.list(memberId) });
+      qc.invalidateQueries({ queryKey: memberKeys.detail(memberId) });
+    },
+  });
+}
+
+export function useRemoveMemberInstrument(memberId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (instrumentId: string) => removeMemberInstrument(memberId, instrumentId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: memberInstrumentKeys.list(memberId) });
+      qc.invalidateQueries({ queryKey: memberKeys.detail(memberId) });
+    },
   });
 }
 
