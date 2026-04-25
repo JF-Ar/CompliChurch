@@ -519,12 +519,11 @@ CREATE TRIGGER trg_items_updated_at
 -- These cannot be edited or deleted by any church.
 -- -----------------------------------------------------------------------------
 INSERT INTO roles (id, church_id, name, base_profile, is_system) VALUES
-    (gen_random_uuid(), NULL, 'Pastor',              'pastor',     TRUE),
-    (gen_random_uuid(), NULL, 'Leadership',          'leadership', TRUE),
-    (gen_random_uuid(), NULL, 'Musician',            'musician',   TRUE),
-    (gen_random_uuid(), NULL, 'Member',              'member',     TRUE),
-    (gen_random_uuid(), NULL, 'Asset Manager',       'leadership', TRUE),
-    (gen_random_uuid(), NULL, 'Worship Leader',      'leadership', TRUE);
+    (gen_random_uuid(), NULL, 'Pastor',         'pastor',     TRUE),
+    (gen_random_uuid(), NULL, 'Worship Leader', 'leadership', TRUE),
+    (gen_random_uuid(), NULL, 'Asset Manager',  'leadership', TRUE),
+    (gen_random_uuid(), NULL, 'Musician',       'musician',   TRUE),
+    (gen_random_uuid(), NULL, 'Member',         'member',     TRUE);
 
 -- -----------------------------------------------------------------------------
 -- System instruments (church_id = NULL, is_system = TRUE)

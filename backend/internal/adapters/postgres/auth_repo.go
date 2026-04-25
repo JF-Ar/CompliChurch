@@ -13,6 +13,8 @@ import (
 	"github.com/jf-ar/compli-church/internal/ports"
 )
 
+var _ ports.AuthRepository = (*AuthRepo)(nil)
+
 type AuthRepo struct {
 	pool *pgxpool.Pool
 }
@@ -200,6 +202,106 @@ func (r *AuthRepo) RevokeAllMemberRefreshTokens(ctx context.Context, memberID uu
 		memberID,
 	)
 	return err
+}
+
+func (r *AuthRepo) CreateChurchWithPastor(ctx context.Context, params ports.RegisterParams) (*ports.LoginMember, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	// a. Insert church
+	var churchID uuid.UUID
+	var churchCreatedAt time.Time
+	err = tx.QueryRow(ctx,
+		`INSERT INTO churches (name, plan_tier, is_autonomous)
+		 VALUES ($1, 'free', FALSE)
+		 RETURNING id, created_at`,
+		params.ChurchName,
+	).Scan(&churchID, &churchCreatedAt)
+	if err != nil {
+		return nil, err
+	}
+
+	// b. Insert member
+	var memberID uuid.UUID
+	var memberCreatedAt time.Time
+	err = tx.QueryRow(ctx,
+		`INSERT INTO members (name, email, password_hash)
+		 VALUES ($1, $2, $3)
+		 RETURNING id, created_at`,
+		params.PastorName, params.Email, params.PasswordHash,
+	).Scan(&memberID, &memberCreatedAt)
+	if err != nil {
+		if isUniqueViolation(err) {
+			return nil, ports.ErrAlreadyExists
+		}
+		return nil, err
+	}
+
+	// c. Insert membership (is_primary = true)
+	var membershipID uuid.UUID
+	err = tx.QueryRow(ctx,
+		`INSERT INTO member_church_memberships (member_id, church_id, is_primary)
+		 VALUES ($1, $2, TRUE)
+		 RETURNING id`,
+		memberID, churchID,
+	).Scan(&membershipID)
+	if err != nil {
+		return nil, err
+	}
+
+	// d. Fetch system Pastor role
+	var roleID uuid.UUID
+	var roleName, roleBaseProfile string
+	err = tx.QueryRow(ctx,
+		`SELECT id, name, base_profile FROM roles WHERE name = 'Pastor' AND church_id IS NULL AND is_system = TRUE LIMIT 1`,
+	).Scan(&roleID, &roleName, &roleBaseProfile)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, errors.New("system Pastor role not found — check seed data")
+		}
+		return nil, err
+	}
+
+	// e. Assign Pastor role (assigned_by = the pastor themselves)
+	_, err = tx.Exec(ctx,
+		`INSERT INTO member_role_assignments (membership_id, role_id, assigned_by) VALUES ($1, $2, $3)`,
+		membershipID, roleID, memberID,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+
+	lm := &ports.LoginMember{
+		ID:              memberID,
+		Name:            params.PastorName,
+		Email:           params.Email,
+		PasswordHash:    params.PasswordHash,
+		IsActive:        true,
+		CreatedAt:       memberCreatedAt,
+		PrimaryChurchID: churchID,
+		BaseProfile:     roleBaseProfile,
+		ChurchIDs:       []uuid.UUID{churchID},
+		Church: ports.ChurchData{
+			ID:           churchID,
+			Name:         params.ChurchName,
+			IsAutonomous: false,
+			PlanTier:     "free",
+			CreatedAt:    churchCreatedAt,
+		},
+		Roles: []ports.MemberRole{
+			{ID: roleID, Name: roleName, BaseProfile: roleBaseProfile},
+		},
+		Instruments: []ports.MemberInstrument{},
+	}
+
+	return lm, nil
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────

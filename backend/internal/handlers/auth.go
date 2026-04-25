@@ -24,6 +24,54 @@ func NewAuthHandler(svc *services.AuthService, refreshTTLDays int, secure bool) 
 	return &AuthHandler{svc: svc, refreshTTLDays: refreshTTLDays, secure: secure}
 }
 
+// POST /auth/register  (public)
+func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		ChurchName string `json:"church_name"`
+		PastorName string `json:"pastor_name"`
+		Email      string `json:"email"`
+		Password   string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid JSON body", "")
+		return
+	}
+	if body.ChurchName == "" {
+		writeError(w, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "church_name is required", "church_name")
+		return
+	}
+	if body.PastorName == "" {
+		writeError(w, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "pastor_name is required", "pastor_name")
+		return
+	}
+	if body.Email == "" {
+		writeError(w, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "email is required", "email")
+		return
+	}
+	if len(body.Password) < 8 {
+		writeError(w, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "password must be at least 8 characters", "password")
+		return
+	}
+
+	result, err := h.svc.Register(r.Context(), services.RegisterInput{
+		ChurchName: body.ChurchName,
+		PastorName: body.PastorName,
+		Email:      body.Email,
+		Password:   body.Password,
+	})
+	if err != nil {
+		if errors.Is(err, services.ErrEmailAlreadyTaken) {
+			writeError(w, http.StatusConflict, "EMAIL_ALREADY_EXISTS", "An account with this email already exists", "email")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "An unexpected error occurred", "")
+		return
+	}
+
+	h.setRefreshCookie(w, result.RefreshToken)
+	writeJSON(w, http.StatusCreated, buildLoginResponse(result.AccessToken, result.Member))
+}
+
 // POST /auth/login
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var body struct {

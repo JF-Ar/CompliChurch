@@ -19,7 +19,16 @@ var (
 	ErrTokenRevoked       = errors.New("token revoked")
 	ErrTokenExpired       = errors.New("token expired")
 	ErrInvalidToken       = errors.New("invalid token")
+	ErrEmailAlreadyTaken  = errors.New("email already taken")
 )
+
+// RegisterInput is the data the service receives from the handler for church self-registration.
+type RegisterInput struct {
+	ChurchName string
+	PastorName string
+	Email      string
+	Password   string
+}
 
 // AccessClaims are extracted from a validated access token.
 type AccessClaims struct {
@@ -87,6 +96,48 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*Login
 
 	if err := bcrypt.CompareHashAndPassword([]byte(member.PasswordHash), []byte(password)); err != nil {
 		return nil, ErrInvalidCredentials
+	}
+
+	accessToken, err := s.mintAccessToken(member.ID, member.PrimaryChurchID, member.BaseProfile, member.ChurchIDs)
+	if err != nil {
+		return nil, fmt.Errorf("mint access token: %w", err)
+	}
+
+	refreshJTI := uuid.New()
+	expiresAt := time.Now().Add(s.refreshTTL)
+	refreshToken, err := s.mintRefreshToken(member.ID, refreshJTI, expiresAt)
+	if err != nil {
+		return nil, fmt.Errorf("mint refresh token: %w", err)
+	}
+
+	if err := s.repo.CreateRefreshToken(ctx, member.ID, refreshJTI, expiresAt); err != nil {
+		return nil, fmt.Errorf("store refresh token: %w", err)
+	}
+
+	return &LoginResult{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		Member:       member,
+	}, nil
+}
+
+func (s *AuthService) Register(ctx context.Context, input RegisterInput) (*LoginResult, error) {
+	hash, err := bcrypt.GenerateFromPassword([]byte(input.Password), 12)
+	if err != nil {
+		return nil, fmt.Errorf("hash password: %w", err)
+	}
+
+	member, err := s.repo.CreateChurchWithPastor(ctx, ports.RegisterParams{
+		ChurchName:   input.ChurchName,
+		PastorName:   input.PastorName,
+		Email:        input.Email,
+		PasswordHash: string(hash),
+	})
+	if err != nil {
+		if errors.Is(err, ports.ErrAlreadyExists) {
+			return nil, ErrEmailAlreadyTaken
+		}
+		return nil, err
 	}
 
 	accessToken, err := s.mintAccessToken(member.ID, member.PrimaryChurchID, member.BaseProfile, member.ChurchIDs)

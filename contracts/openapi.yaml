@@ -933,6 +933,25 @@ components:
 
     # ── AUTH ──────────────────────────────────────────────────────────────────
 
+    RegisterRequest:
+      type: object
+      required: [church_name, pastor_name, email, password]
+      properties:
+        church_name:
+          type: string
+          example: "Primeira Igreja Batista"
+        pastor_name:
+          type: string
+          example: "João Silva"
+        email:
+          type: string
+          format: email
+          example: "pastor@example.com"
+        password:
+          type: string
+          format: password
+          minLength: 8
+
     LoginRequest:
       type: object
       required: [email, password]
@@ -1030,6 +1049,36 @@ components:
 paths:
 
   # ── AUTH ────────────────────────────────────────────────────────────────────
+
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new church (self-service)
+      security: []
+      description: |
+        Creates a new church, a pastor member, and issues tokens in one atomic transaction.
+        The pastor account is immediately active and can log in.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: Church and pastor created. Refresh token set as HttpOnly cookie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "409":
+          description: Email already in use.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
 
   /auth/login:
     post:

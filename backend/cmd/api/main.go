@@ -13,6 +13,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 
 	"github.com/jf-ar/compli-church/internal/adapters/postgres"
 	"github.com/jf-ar/compli-church/internal/config"
@@ -60,7 +61,19 @@ func main() {
 	roleHandler := handlers.NewRoleHandler(memberSvc)
 	instrumentHandler := handlers.NewInstrumentHandler(memberSvc)
 
+	allowedOrigins := []string{"http://localhost:3000"}
+	if cfg.Env == "production" {
+		allowedOrigins = []string{"https://igreaorganizada.com.br", "https://www.igreaorganizada.com.br"}
+	}
+
 	r := chi.NewRouter()
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   allowedOrigins,
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
+		AllowCredentials: true, // required for HttpOnly refresh-token cookie
+		MaxAge:           300,
+	}))
 	r.Use(chimw.RequestID)
 	r.Use(chimw.RealIP)
 	r.Use(chimw.Logger)
@@ -69,6 +82,7 @@ func main() {
 
 	r.Route("/api/v1", func(r chi.Router) {
 		// ── Public auth endpoints ─────────────────────────────────────────
+		r.Post("/auth/register", authHandler.Register)
 		r.Post("/auth/login", authHandler.Login)
 		r.Post("/auth/refresh", authHandler.Refresh)
 

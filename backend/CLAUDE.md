@@ -367,3 +367,5 @@ Keep it as a flat list. Do not describe — just list.
 - `DELETE /api/v1/instruments/{id}`
 - postgres MemberRepo (implements MemberRepository + RoleRepository + InstrumentRepository)
 - services/member_service.go + queries/members.sql
+- `POST /api/v1/auth/register` (church self-service registration — public, no auth)
+- System roles seed corrected: removed generic "Leadership" role; canonical set is Pastor / Worship Leader / Asset Manager / Musician / Member

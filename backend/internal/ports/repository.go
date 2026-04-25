@@ -77,6 +77,14 @@ type RefreshToken struct {
 	CreatedAt time.Time
 }
 
+// RegisterParams carries the data needed to create a new church + pastor atomically.
+type RegisterParams struct {
+	ChurchName   string
+	PastorName   string
+	Email        string
+	PasswordHash string
+}
+
 // AuthRepository is the port the auth service depends on.
 type AuthRepository interface {
 	GetMemberForLogin(ctx context.Context, email string) (*LoginMember, error)
@@ -85,6 +93,7 @@ type AuthRepository interface {
 	GetRefreshTokenByJTI(ctx context.Context, jti uuid.UUID) (*RefreshToken, error)
 	RevokeRefreshToken(ctx context.Context, jti uuid.UUID) error
 	RevokeAllMemberRefreshTokens(ctx context.Context, memberID uuid.UUID) error
+	CreateChurchWithPastor(ctx context.Context, params RegisterParams) (*LoginMember, error)
 }
 
 // ── Shared error sentinels ─────────────────────────────────────────────────────
