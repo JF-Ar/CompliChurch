@@ -1,4 +1,4 @@
-import { getAccessToken, setSession, clearSession } from "./auth";
+import { getAccessToken, setAccessToken, setSession, clearSession } from "./auth";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL!;
 
@@ -99,6 +99,13 @@ export interface LoginResponse {
   access_token: string;
   member: Member;
   church: Church;
+}
+
+export interface RegisterRequest {
+  church_name: string;
+  pastor_name: string;
+  email: string;
+  password: string;
 }
 
 export interface Schedule {
@@ -221,6 +228,7 @@ async function doRefresh(): Promise<string | null> {
     return null;
   }
   const data: { access_token: string } = await res.json();
+  setAccessToken(data.access_token);
   return data.access_token;
 }
 
@@ -277,6 +285,22 @@ export async function login(email: string, password: string): Promise<LoginRespo
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
+  });
+  if (!res.ok) {
+    const error: ApiError = await res.json().catch(() => ({
+      error: { code: "UNKNOWN_ERROR", message: res.statusText },
+    }));
+    throw error;
+  }
+  return res.json();
+}
+
+export async function register(body: RegisterRequest): Promise<LoginResponse> {
+  const res = await fetch(`${BASE_URL}/auth/register`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     const error: ApiError = await res.json().catch(() => ({

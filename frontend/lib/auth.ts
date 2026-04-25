@@ -19,6 +19,10 @@ export function getSession(): { member: Member; church: Church } | null {
   return { member: currentMember, church: currentChurch };
 }
 
+export function setAccessToken(token: string): void {
+  accessToken = token;
+}
+
 export function clearSession(): void {
   accessToken = null;
   currentMember = null;

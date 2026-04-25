@@ -253,3 +253,7 @@ Keep it as a flat list. Do not describe — just list.
 - app/(dashboard)/members/[id]/page.tsx — detail: info, roles (assign/remove), instruments, deactivate with confirm
 - app/(dashboard)/members/new/page.tsx — create form (name, email, phone, birth_date)
 - lib/api.ts — added assignRole, removeRole functions
+- lib/api.ts — register() function (POST /auth/register, same raw-fetch pattern as login)
+- app/(auth)/register/page.tsx — registration form (church name, pastor name, email, password, confirm password); 409 → field error on email; 422 → field-level errors; on success stores session and redirects to /dashboard
+- app/(auth)/login/page.tsx — added "Não tem uma conta? Cadastre sua igreja" link to /register
+- app/(dashboard)/members/new/page.tsx — added role selector (collapsed behind "+ Adicionar funções" toggle, checkbox list with role name + base_profile badge, role_ids sent in createMember call)

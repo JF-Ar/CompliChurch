@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import Link from "next/link";
 import { login, setSession, type ApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -86,6 +87,13 @@ export default function LoginPage() {
             {isSubmitting ? "Entrando…" : "Entrar"}
           </Button>
         </form>
+
+        <p className="text-sm text-center text-muted-foreground">
+          Não tem uma conta?{" "}
+          <Link href="/register" className="font-medium text-foreground underline-offset-4 hover:underline">
+            Cadastre sua igreja
+          </Link>
+        </p>
       </div>
     </div>
   );
