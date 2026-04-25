@@ -203,22 +203,36 @@ func (s *MemberService) RemoveRole(ctx context.Context, memberID, roleID, church
 
 // ── Member instruments ────────────────────────────────────────────────────────
 
-func (s *MemberService) GetMemberInstruments(ctx context.Context, memberID uuid.UUID) ([]ports.MemberInstrument, error) {
-	return s.memberRepo.GetMemberInstruments(ctx, memberID)
+func (s *MemberService) GetMemberInstruments(ctx context.Context, memberID, churchID uuid.UUID) ([]ports.MemberInstrument, error) {
+	// Verify member belongs to church.
+	if _, err := s.memberRepo.GetMemberByID(ctx, memberID, churchID); err != nil {
+		if errors.Is(err, ports.ErrNotFound) {
+			return nil, ErrMemberNotFound
+		}
+		return nil, err
+	}
+	return s.memberRepo.GetMemberInstruments(ctx, memberID, churchID)
 }
 
-func (s *MemberService) AddMemberInstrument(ctx context.Context, memberID, instrumentID uuid.UUID, isPrimary bool) (*ports.MemberInstrument, error) {
-	// Verify instrument exists.
-	if _, err := s.instrRepo.GetInstrumentByID(ctx, instrumentID); err != nil {
+func (s *MemberService) AddMemberInstrument(ctx context.Context, memberID, churchID, instrumentID uuid.UUID, isPrimary bool) (*ports.MemberInstrument, error) {
+	// Verify instrument exists and is accessible to this church.
+	instr, err := s.instrRepo.GetInstrumentByID(ctx, instrumentID)
+	if err != nil {
 		if errors.Is(err, ports.ErrNotFound) {
 			return nil, ErrInstrumentNotFound
 		}
 		return nil, err
 	}
+	if !instr.IsSystem && (instr.ChurchID == nil || *instr.ChurchID != churchID) {
+		return nil, ErrInstrumentNotFound
+	}
 
-	inst, err := s.memberRepo.AddMemberInstrument(ctx, memberID, instrumentID, isPrimary)
+	inst, err := s.memberRepo.AddMemberInstrument(ctx, memberID, churchID, instrumentID, isPrimary)
 	if err != nil {
-		if errors.Is(err, ports.ErrAlreadyExists) {
+		switch {
+		case errors.Is(err, ports.ErrNotFound):
+			return nil, ErrMemberNotFound
+		case errors.Is(err, ports.ErrAlreadyExists):
 			return nil, ErrInstrumentAlreadyAdded
 		}
 		return nil, err
@@ -226,8 +240,8 @@ func (s *MemberService) AddMemberInstrument(ctx context.Context, memberID, instr
 	return inst, nil
 }
 
-func (s *MemberService) RemoveMemberInstrument(ctx context.Context, memberID, instrumentID uuid.UUID) error {
-	if err := s.memberRepo.RemoveMemberInstrument(ctx, memberID, instrumentID); err != nil {
+func (s *MemberService) RemoveMemberInstrument(ctx context.Context, memberID, churchID, instrumentID uuid.UUID) error {
+	if err := s.memberRepo.RemoveMemberInstrument(ctx, memberID, churchID, instrumentID); err != nil {
 		if errors.Is(err, ports.ErrNotFound) {
 			return ErrInstrumentNotInProfile
 		}

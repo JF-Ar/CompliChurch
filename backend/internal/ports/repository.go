@@ -184,9 +184,9 @@ type MemberRepository interface {
 	GetMemberRoles(ctx context.Context, memberID, churchID uuid.UUID) ([]MemberRole, error)
 	AssignRole(ctx context.Context, memberID, churchID, roleID, assignedBy uuid.UUID) error
 	RemoveRole(ctx context.Context, memberID, roleID, churchID uuid.UUID) error
-	GetMemberInstruments(ctx context.Context, memberID uuid.UUID) ([]MemberInstrument, error)
-	AddMemberInstrument(ctx context.Context, memberID, instrumentID uuid.UUID, isPrimary bool) (*MemberInstrument, error)
-	RemoveMemberInstrument(ctx context.Context, memberID, instrumentID uuid.UUID) error
+	GetMemberInstruments(ctx context.Context, memberID, churchID uuid.UUID) ([]MemberInstrument, error)
+	AddMemberInstrument(ctx context.Context, memberID, churchID, instrumentID uuid.UUID, isPrimary bool) (*MemberInstrument, error)
+	RemoveMemberInstrument(ctx context.Context, memberID, churchID, instrumentID uuid.UUID) error
 }
 
 type RoleRepository interface {

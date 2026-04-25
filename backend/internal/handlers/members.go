@@ -187,7 +187,7 @@ func (h *MemberHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 func (h *MemberHandler) GetMyInstruments(w http.ResponseWriter, r *http.Request) {
 	auth := AuthContextFromContext(r.Context())
 
-	instruments, err := h.svc.GetMemberInstruments(r.Context(), auth.MemberID)
+	instruments, err := h.svc.GetMemberInstruments(r.Context(), auth.MemberID, auth.ChurchID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "An unexpected error occurred", "")
 		return
@@ -223,7 +223,7 @@ func (h *MemberHandler) AddMyInstrument(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	inst, err := h.svc.AddMemberInstrument(r.Context(), auth.MemberID, instrumentID, body.IsPrimary)
+	inst, err := h.svc.AddMemberInstrument(r.Context(), auth.MemberID, auth.ChurchID, instrumentID, body.IsPrimary)
 	if err != nil {
 		switch {
 		case errors.Is(err, services.ErrInstrumentNotFound):
@@ -254,7 +254,7 @@ func (h *MemberHandler) RemoveMyInstrument(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	if err := h.svc.RemoveMemberInstrument(r.Context(), auth.MemberID, instrumentID); err != nil {
+	if err := h.svc.RemoveMemberInstrument(r.Context(), auth.MemberID, auth.ChurchID, instrumentID); err != nil {
 		if errors.Is(err, services.ErrInstrumentNotInProfile) {
 			writeError(w, http.StatusNotFound, "INSTRUMENT_NOT_FOUND", "Instrument not in your profile", "")
 			return
@@ -410,6 +410,112 @@ func (h *MemberHandler) RemoveMemberRole(w http.ResponseWriter, r *http.Request)
 	if err := h.svc.RemoveRole(r.Context(), id, roleID, auth.ChurchID); err != nil {
 		if errors.Is(err, services.ErrRoleNotAssigned) {
 			writeError(w, http.StatusNotFound, "ROLE_NOT_FOUND", "Role not assigned to this member", "")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "An unexpected error occurred", "")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// GET /members/{id}/instruments
+func (h *MemberHandler) GetMemberInstruments(w http.ResponseWriter, r *http.Request) {
+	auth := AuthContextFromContext(r.Context())
+
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "VALIDATION_ERROR", "invalid member id", "id")
+		return
+	}
+
+	instruments, err := h.svc.GetMemberInstruments(r.Context(), id, auth.ChurchID)
+	if err != nil {
+		if errors.Is(err, services.ErrMemberNotFound) {
+			writeError(w, http.StatusNotFound, "MEMBER_NOT_FOUND", "Member not found", "")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "An unexpected error occurred", "")
+		return
+	}
+
+	data := make([]instrumentResponse, len(instruments))
+	for i, inst := range instruments {
+		data[i] = instrumentResponse{
+			ID:             inst.ID,
+			InstrumentID:   inst.InstrumentID,
+			InstrumentName: inst.InstrumentName,
+			IsPrimary:      inst.IsPrimary,
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": data})
+}
+
+// POST /members/{id}/instruments
+func (h *MemberHandler) AddMemberInstrument(w http.ResponseWriter, r *http.Request) {
+	auth := AuthContextFromContext(r.Context())
+
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "VALIDATION_ERROR", "invalid member id", "id")
+		return
+	}
+
+	var body struct {
+		InstrumentID string `json:"instrument_id"`
+		IsPrimary    bool   `json:"is_primary"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid JSON body", "")
+		return
+	}
+	instrumentID, err := uuid.Parse(body.InstrumentID)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "VALIDATION_ERROR", "invalid instrument_id", "instrument_id")
+		return
+	}
+
+	inst, err := h.svc.AddMemberInstrument(r.Context(), id, auth.ChurchID, instrumentID, body.IsPrimary)
+	if err != nil {
+		switch {
+		case errors.Is(err, services.ErrMemberNotFound):
+			writeError(w, http.StatusNotFound, "MEMBER_NOT_FOUND", "Member not found", "")
+		case errors.Is(err, services.ErrInstrumentNotFound):
+			writeError(w, http.StatusNotFound, "INSTRUMENT_NOT_FOUND", "Instrument not found", "instrument_id")
+		case errors.Is(err, services.ErrInstrumentAlreadyAdded):
+			writeError(w, http.StatusConflict, "INSTRUMENT_ALREADY_ADDED", "Instrument already in member profile", "instrument_id")
+		default:
+			writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "An unexpected error occurred", "")
+		}
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, instrumentResponse{
+		ID:             inst.ID,
+		InstrumentID:   inst.InstrumentID,
+		InstrumentName: inst.InstrumentName,
+		IsPrimary:      inst.IsPrimary,
+	})
+}
+
+// DELETE /members/{id}/instruments/{instrument_id}
+func (h *MemberHandler) RemoveMemberInstrument(w http.ResponseWriter, r *http.Request) {
+	auth := AuthContextFromContext(r.Context())
+
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "VALIDATION_ERROR", "invalid member id", "id")
+		return
+	}
+	instrumentID, err := uuid.Parse(chi.URLParam(r, "instrument_id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "VALIDATION_ERROR", "invalid instrument_id", "instrument_id")
+		return
+	}
+
+	if err := h.svc.RemoveMemberInstrument(r.Context(), id, auth.ChurchID, instrumentID); err != nil {
+		if errors.Is(err, services.ErrInstrumentNotInProfile) {
+			writeError(w, http.StatusNotFound, "INSTRUMENT_NOT_FOUND", "Instrument not in member profile", "")
 			return
 		}
 		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "An unexpected error occurred", "")

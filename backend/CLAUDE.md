@@ -369,3 +369,7 @@ Keep it as a flat list. Do not describe — just list.
 - services/member_service.go + queries/members.sql
 - `POST /api/v1/auth/register` (church self-service registration — public, no auth)
 - System roles seed corrected: removed generic "Leadership" role; canonical set is Pastor / Worship Leader / Asset Manager / Musician / Member
+- `GET /api/v1/members/{id}/instruments`
+- `POST /api/v1/members/{id}/instruments`
+- `DELETE /api/v1/members/{id}/instruments/{instrument_id}`
+- MemberRepository instrument methods now accept churchID for multi-tenant isolation and auto-primary assignment on first instrument

@@ -223,7 +223,7 @@ func (r *MemberRepo) GetMemberByID(ctx context.Context, id, churchID uuid.UUID) 
 	}
 	m.Roles = roles
 
-	instruments, err := r.GetMemberInstruments(ctx, id)
+	instruments, err := r.GetMemberInstruments(ctx, id, churchID)
 	if err != nil {
 		return nil, err
 	}
@@ -364,13 +364,14 @@ func (r *MemberRepo) RemoveRole(ctx context.Context, memberID, roleID, churchID 
 	return nil
 }
 
-func (r *MemberRepo) GetMemberInstruments(ctx context.Context, memberID uuid.UUID) ([]ports.MemberInstrument, error) {
+func (r *MemberRepo) GetMemberInstruments(ctx context.Context, memberID, churchID uuid.UUID) ([]ports.MemberInstrument, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT mi.id, mi.instrument_id, i.name AS instrument_name, mi.is_primary
 		 FROM member_instruments mi
 		 JOIN instruments i ON mi.instrument_id = i.id
-		 WHERE mi.member_id = $1`,
-		memberID,
+		 JOIN member_church_memberships mcm ON mi.member_id = mcm.member_id
+		 WHERE mi.member_id = $1 AND mcm.church_id = $2 AND mcm.left_at IS NULL`,
+		memberID, churchID,
 	)
 	if err != nil {
 		return nil, err
@@ -388,12 +389,33 @@ func (r *MemberRepo) GetMemberInstruments(ctx context.Context, memberID uuid.UUI
 	return instruments, rows.Err()
 }
 
-func (r *MemberRepo) AddMemberInstrument(ctx context.Context, memberID, instrumentID uuid.UUID, isPrimary bool) (*ports.MemberInstrument, error) {
+func (r *MemberRepo) AddMemberInstrument(ctx context.Context, memberID, churchID, instrumentID uuid.UUID, isPrimary bool) (*ports.MemberInstrument, error) {
+	// Validate member belongs to this church.
+	var memberExists bool
+	if err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS (
+			SELECT 1 FROM member_church_memberships
+			WHERE member_id = $1 AND church_id = $2 AND left_at IS NULL
+		)`,
+		memberID, churchID,
+	).Scan(&memberExists); err != nil {
+		return nil, err
+	}
+	if !memberExists {
+		return nil, ports.ErrNotFound
+	}
+
 	var inst ports.MemberInstrument
 	err := r.pool.QueryRow(ctx,
-		`WITH ins AS (
+		`WITH first_check AS (
+			SELECT NOT EXISTS (
+				SELECT 1 FROM member_instruments WHERE member_id = $1
+			) AS is_first
+		),
+		ins AS (
 			INSERT INTO member_instruments (member_id, instrument_id, is_primary)
-			VALUES ($1, $2, $3)
+			SELECT $1, $2, CASE WHEN fc.is_first THEN TRUE ELSE $3 END
+			FROM first_check fc
 			RETURNING id, instrument_id, is_primary
 		)
 		SELECT ins.id, ins.instrument_id, i.name AS instrument_name, ins.is_primary
@@ -409,10 +431,16 @@ func (r *MemberRepo) AddMemberInstrument(ctx context.Context, memberID, instrume
 	return &inst, nil
 }
 
-func (r *MemberRepo) RemoveMemberInstrument(ctx context.Context, memberID, instrumentID uuid.UUID) error {
+func (r *MemberRepo) RemoveMemberInstrument(ctx context.Context, memberID, churchID, instrumentID uuid.UUID) error {
 	tag, err := r.pool.Exec(ctx,
-		`DELETE FROM member_instruments WHERE member_id = $1 AND instrument_id = $2`,
-		memberID, instrumentID,
+		`DELETE FROM member_instruments
+		 WHERE member_id = $1
+		   AND instrument_id = $3
+		   AND EXISTS (
+			 SELECT 1 FROM member_church_memberships
+			 WHERE member_id = $1 AND church_id = $2 AND left_at IS NULL
+		   )`,
+		memberID, churchID, instrumentID,
 	)
 	if err != nil {
 		return err

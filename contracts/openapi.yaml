@@ -1501,6 +1501,81 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /members/{id}/instruments:
+    get:
+      tags: [Members]
+      summary: List instruments assigned to a member
+      description: "Any authenticated member. Returns instruments for the given member within the requester's church."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MemberInstrument"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [Members]
+      summary: Add instrument to a member's profile
+      description: "Required role: leadership"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemberInstrumentAdd"
+      responses:
+        "201":
+          description: Added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemberInstrument"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /members/{id}/instruments/{instrument_id}:
+    delete:
+      tags: [Members]
+      summary: Remove instrument from a member's profile
+      description: "Required role: leadership"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+        - name: instrument_id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "204":
+          description: Removed
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   # ── ROLES ───────────────────────────────────────────────────────────────────
 
   /roles:

@@ -112,6 +112,10 @@ func main() {
 				r.With(handlers.RequireProfile("leadership")).Get("/{id}/roles", memberHandler.GetMemberRoles)
 				r.With(handlers.RequireProfile("leadership")).Post("/{id}/roles", memberHandler.AssignRole)
 				r.With(handlers.RequireProfile("leadership")).Delete("/{id}/roles/{role_id}", memberHandler.RemoveMemberRole)
+
+				r.Get("/{id}/instruments", memberHandler.GetMemberInstruments)
+				r.With(handlers.RequireProfile("leadership")).Post("/{id}/instruments", memberHandler.AddMemberInstrument)
+				r.With(handlers.RequireProfile("leadership")).Delete("/{id}/instruments/{instrument_id}", memberHandler.RemoveMemberInstrument)
 			})
 
 			// ── Roles ─────────────────────────────────────────────────────
