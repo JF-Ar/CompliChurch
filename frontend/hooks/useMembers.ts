@@ -4,14 +4,20 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   listMembers,
   getMember,
+  getMe,
+  updateMe,
   createMember,
   updateMember,
   deactivateMember,
+  getMyInstruments,
+  addMyInstrument,
+  removeMyInstrument,
   listRoles,
   assignRole,
   removeRole,
+  listInstruments,
 } from "@/lib/api";
-import type { MemberCreate, MemberUpdate } from "@/lib/api";
+import type { MemberCreate, MemberUpdate, MemberInstrumentAdd } from "@/lib/api";
 
 export const memberKeys = {
   all: ["members"] as const,
@@ -19,9 +25,20 @@ export const memberKeys = {
   detail: (id: string) => ["members", id] as const,
 };
 
+export const meKeys = {
+  profile: ["me", "profile"] as const,
+  instruments: ["me", "instruments"] as const,
+};
+
 export const roleKeys = {
   all: ["roles"] as const,
 };
+
+export const instrumentKeys = {
+  all: ["instruments"] as const,
+};
+
+// ── Members list & detail ─────────────────────────────────────────────────────
 
 export function useMembers(params?: {
   page?: number;
@@ -41,13 +58,6 @@ export function useMember(id: string) {
     queryKey: memberKeys.detail(id),
     queryFn: () => getMember(id),
     enabled: !!id,
-  });
-}
-
-export function useRoles() {
-  return useQuery({
-    queryKey: roleKeys.all,
-    queryFn: listRoles,
   });
 }
 
@@ -78,6 +88,57 @@ export function useDeactivateMember() {
   });
 }
 
+// ── Own profile ───────────────────────────────────────────────────────────────
+
+export function useMe() {
+  return useQuery({
+    queryKey: meKeys.profile,
+    queryFn: getMe,
+  });
+}
+
+export function useUpdateMe() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: MemberUpdate) => updateMe(data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: meKeys.profile }),
+  });
+}
+
+// ── Own instruments ───────────────────────────────────────────────────────────
+
+export function useMyInstruments() {
+  return useQuery({
+    queryKey: meKeys.instruments,
+    queryFn: getMyInstruments,
+  });
+}
+
+export function useAddInstrument() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: MemberInstrumentAdd) => addMyInstrument(data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: meKeys.instruments }),
+  });
+}
+
+export function useRemoveInstrument() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (instrumentId: string) => removeMyInstrument(instrumentId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: meKeys.instruments }),
+  });
+}
+
+// ── Roles ─────────────────────────────────────────────────────────────────────
+
+export function useRoles() {
+  return useQuery({
+    queryKey: roleKeys.all,
+    queryFn: listRoles,
+  });
+}
+
 export function useAssignRole(memberId: string) {
   const qc = useQueryClient();
   return useMutation({
@@ -91,5 +152,14 @@ export function useRemoveRole(memberId: string) {
   return useMutation({
     mutationFn: (roleId: string) => removeRole(memberId, roleId),
     onSuccess: () => qc.invalidateQueries({ queryKey: memberKeys.detail(memberId) }),
+  });
+}
+
+// ── Instruments catalog ───────────────────────────────────────────────────────
+
+export function useInstruments() {
+  return useQuery({
+    queryKey: instrumentKeys.all,
+    queryFn: listInstruments,
   });
 }

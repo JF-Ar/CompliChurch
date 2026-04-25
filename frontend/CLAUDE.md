@@ -256,4 +256,8 @@ Keep it as a flat list. Do not describe — just list.
 - lib/api.ts — register() function (POST /auth/register, same raw-fetch pattern as login)
 - app/(auth)/register/page.tsx — registration form (church name, pastor name, email, password, confirm password); 409 → field error on email; 422 → field-level errors; on success stores session and redirects to /dashboard
 - app/(auth)/login/page.tsx — added "Não tem uma conta? Cadastre sua igreja" link to /register
-- app/(dashboard)/members/new/page.tsx — added role selector (collapsed behind "+ Adicionar funções" toggle, checkbox list with role name + base_profile badge, role_ids sent in createMember call)
+- app/(dashboard)/members/new/page.tsx — added role selector (collapsed behind "+ Adicionar funções" toggle, checkbox list with role name + base_profile badge, role_ids sent in createMember call); redirect to /members/{id} on success
+- app/(dashboard)/members/[id]/page.tsx — added inline edit form for name/phone/birth_date (Editar button, RHF+Zod, useUpdateMember)
+- app/(dashboard)/members/me/page.tsx — own profile: view/edit name/phone/birth_date, roles (read-only), instruments (add/remove from catalog)
+- lib/api.ts — added getMyInstruments, addMyInstrument, removeMyInstrument, createRole, updateRole, deleteRole, createInstrument, deleteInstrument, MemberInstrumentAdd type
+- hooks/useMembers.ts — added useMe, useUpdateMe, useMyInstruments, useAddInstrument, useRemoveInstrument, useInstruments; added meKeys and instrumentKeys

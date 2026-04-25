@@ -68,7 +68,7 @@ export default function NewMemberPage() {
 
   async function onSubmit(values: FormValues) {
     try {
-      await createMember.mutateAsync({
+      const created = await createMember.mutateAsync({
         name: values.name,
         email: values.email,
         phone: values.phone?.trim() || null,
@@ -76,7 +76,7 @@ export default function NewMemberPage() {
         role_ids: values.role_ids?.length ? values.role_ids : undefined,
       });
       toast.success("Membro cadastrado. Um convite foi enviado por e-mail.");
-      router.push("/members");
+      router.push(`/members/${created.id}`);
     } catch (err) {
       const e = err as ApiError;
       toast.error(e?.error?.message ?? "Não foi possível cadastrar o membro. Tente novamente.");

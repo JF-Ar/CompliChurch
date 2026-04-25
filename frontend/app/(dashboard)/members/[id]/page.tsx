@@ -3,21 +3,35 @@
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { ChevronLeft, Music, X, UserMinus } from "lucide-react";
+import { ChevronLeft, Music, X, UserMinus, Pencil } from "lucide-react";
 import {
   useMember,
+  useUpdateMember,
   useDeactivateMember,
   useAssignRole,
   useRemoveRole,
   useRoles,
 } from "@/hooks/useMembers";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RoleBadge } from "@/components/features/members/RoleBadge";
 import { DeactivateDialog } from "@/components/features/members/DeactivateDialog";
 import type { ApiError } from "@/lib/api";
+
+const editSchema = z.object({
+  name: z.string().min(2, "Nome deve ter ao menos 2 caracteres"),
+  phone: z.string().optional(),
+  birth_date: z.string().optional(),
+});
+
+type EditValues = z.infer<typeof editSchema>;
 
 function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return "—";
@@ -25,21 +39,51 @@ function formatDate(dateStr: string | null | undefined): string {
   return `${day}/${month}/${year}`;
 }
 
-function formatTimestamp(ts: string): string {
-  return new Date(ts).toLocaleDateString("pt-BR");
-}
-
 export default function MemberDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [showDeactivate, setShowDeactivate] = useState(false);
   const [selectedRoleId, setSelectedRoleId] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
 
   const { data: member, isLoading, isError } = useMember(id);
   const { data: rolesData } = useRoles();
+  const updateMember = useUpdateMember(id);
   const deactivate = useDeactivateMember();
   const assignRole = useAssignRole(id);
   const removeRole = useRemoveRole(id);
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<EditValues>({ resolver: zodResolver(editSchema) });
+
+  function startEdit() {
+    if (!member) return;
+    reset({
+      name: member.name,
+      phone: member.phone ?? "",
+      birth_date: member.birth_date ?? "",
+    });
+    setIsEditing(true);
+  }
+
+  async function onEdit(values: EditValues) {
+    try {
+      await updateMember.mutateAsync({
+        name: values.name,
+        phone: values.phone?.trim() || null,
+        birth_date: values.birth_date || null,
+      });
+      toast.success("Informações atualizadas.");
+      setIsEditing(false);
+    } catch (err) {
+      const e = err as ApiError;
+      toast.error(e?.error?.message ?? "Não foi possível atualizar. Tente novamente.");
+    }
+  }
 
   async function handleDeactivate() {
     try {
@@ -137,21 +181,79 @@ export default function MemberDetailPage() {
 
         {/* Info */}
         <div className="rounded-lg border bg-card p-4 space-y-4">
-          <h2 className="text-base font-semibold">Informações</h2>
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-            <div>
-              <dt className="text-xs text-muted-foreground mb-0.5">Telefone</dt>
-              <dd>{member.phone ?? "—"}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-muted-foreground mb-0.5">Nascimento</dt>
-              <dd>{formatDate(member.birth_date)}</dd>
-            </div>
-            <div className="col-span-2">
-              <dt className="text-xs text-muted-foreground mb-0.5">Membro desde</dt>
-              <dd>{formatTimestamp(member.created_at)}</dd>
-            </div>
-          </dl>
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-semibold">Informações</h2>
+            {!isEditing && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={startEdit}
+                className="h-8 px-2 text-xs"
+              >
+                <Pencil className="h-3.5 w-3.5 mr-1" />
+                Editar
+              </Button>
+            )}
+          </div>
+
+          {isEditing ? (
+            <form onSubmit={handleSubmit(onEdit)} className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-name">Nome</Label>
+                <Input id="edit-name" {...register("name")} />
+                {errors.name && (
+                  <p className="text-xs text-destructive">{errors.name.message}</p>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-phone">Telefone</Label>
+                <Input
+                  id="edit-phone"
+                  type="tel"
+                  placeholder="+55 31 99999-0000"
+                  {...register("phone")}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-birth_date">Data de nascimento</Label>
+                <Input id="edit-birth_date" type="date" {...register("birth_date")} />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={isSubmitting}
+                  className="min-h-[44px]"
+                >
+                  {isSubmitting ? "Salvando…" : "Salvar"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsEditing(false)}
+                  className="min-h-[44px]"
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+              <div>
+                <dt className="text-xs text-muted-foreground mb-0.5">Telefone</dt>
+                <dd>{member.phone ?? "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground mb-0.5">Nascimento</dt>
+                <dd>{formatDate(member.birth_date)}</dd>
+              </div>
+              <div className="col-span-2">
+                <dt className="text-xs text-muted-foreground mb-0.5">Membro desde</dt>
+                <dd>{new Date(member.created_at).toLocaleDateString("pt-BR")}</dd>
+              </div>
+            </dl>
+          )}
         </div>
 
         {/* Roles */}
@@ -197,6 +299,7 @@ export default function MemberDetailPage() {
                 size="sm"
                 onClick={handleAssignRole}
                 disabled={!selectedRoleId || assignRole.isPending}
+                className="min-h-[44px]"
               >
                 {assignRole.isPending ? "Adicionando…" : "Adicionar"}
               </Button>
@@ -204,7 +307,7 @@ export default function MemberDetailPage() {
           )}
         </div>
 
-        {/* Instruments */}
+        {/* Instruments — read-only on other member's profile */}
         <div className="rounded-lg border bg-card p-4 space-y-3">
           <h2 className="text-base font-semibold">Instrumentos</h2>
           {member.instruments.length === 0 ? (

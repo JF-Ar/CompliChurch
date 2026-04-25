@@ -38,6 +38,11 @@ export interface MemberUpdate {
   birth_date?: string | null;
 }
 
+export interface MemberInstrumentAdd {
+  instrument_id: string;
+  is_primary?: boolean;
+}
+
 export interface Church {
   id: string;
   parent_church_id?: string | null;
@@ -274,7 +279,11 @@ async function apiFetch<T>(
     return undefined as T;
   }
 
-  return res.json();
+  const text = await res.text();
+  if (!text.trim()) {
+    return undefined as T;
+  }
+  return JSON.parse(text) as T;
 }
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
@@ -368,6 +377,18 @@ export async function updateMember(id: string, data: MemberUpdate): Promise<Memb
 
 export async function deactivateMember(id: string): Promise<void> {
   return apiFetch(`/members/${id}`, { method: "DELETE" });
+}
+
+export async function getMyInstruments(): Promise<{ data: MemberInstrument[] }> {
+  return apiFetch("/members/me/instruments");
+}
+
+export async function addMyInstrument(data: MemberInstrumentAdd): Promise<MemberInstrument> {
+  return apiFetch("/members/me/instruments", { method: "POST", body: JSON.stringify(data) });
+}
+
+export async function removeMyInstrument(instrumentId: string): Promise<void> {
+  return apiFetch(`/members/me/instruments/${instrumentId}`, { method: "DELETE" });
 }
 
 // ── Schedules ─────────────────────────────────────────────────────────────────
@@ -520,6 +541,26 @@ export async function listRoles(): Promise<{ data: Role[] }> {
 
 export async function listInstruments(): Promise<{ data: Instrument[] }> {
   return apiFetch("/instruments");
+}
+
+export async function createRole(data: { name: string; base_profile: string }): Promise<Role> {
+  return apiFetch("/roles", { method: "POST", body: JSON.stringify(data) });
+}
+
+export async function updateRole(id: string, data: { name: string; base_profile: string }): Promise<Role> {
+  return apiFetch(`/roles/${id}`, { method: "PUT", body: JSON.stringify(data) });
+}
+
+export async function deleteRole(id: string): Promise<void> {
+  return apiFetch(`/roles/${id}`, { method: "DELETE" });
+}
+
+export async function createInstrument(data: { name: string }): Promise<Instrument> {
+  return apiFetch("/instruments", { method: "POST", body: JSON.stringify(data) });
+}
+
+export async function deleteInstrument(id: string): Promise<void> {
+  return apiFetch(`/instruments/${id}`, { method: "DELETE" });
 }
 
 export async function assignRole(memberId: string, roleId: string): Promise<void> {
