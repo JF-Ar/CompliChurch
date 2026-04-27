@@ -373,3 +373,22 @@ Keep it as a flat list. Do not describe — just list.
 - `POST /api/v1/members/{id}/instruments`
 - `DELETE /api/v1/members/{id}/instruments/{instrument_id}`
 - MemberRepository instrument methods now accept churchID for multi-tenant isolation and auto-primary assignment on first instrument
+- `GET /api/v1/inventory/categories`
+- `POST /api/v1/inventory/categories`
+- `PUT /api/v1/inventory/categories/{id}`
+- `DELETE /api/v1/inventory/categories/{id}`
+- `GET /api/v1/inventory/items` (with search, category_id, status, item_type, include_deleted filters)
+- `POST /api/v1/inventory/items` (asset_number auto-generated as PREFIX-001 if omitted)
+- `GET /api/v1/inventory/items/{id}`
+- `PUT /api/v1/inventory/items/{id}`
+- `POST /api/v1/inventory/items/{id}/photo` (multipart; R2 deferred — stores placeholder URL)
+- `POST /api/v1/inventory/items/{id}/discard`
+- `POST /api/v1/inventory/items/{id}/donate`
+- `GET /api/v1/inventory/loans`
+- `POST /api/v1/inventory/loans`
+- `GET /api/v1/inventory/loans/{id}`
+- `POST /api/v1/inventory/loans/{id}/approve`
+- `POST /api/v1/inventory/loans/{id}/reject`
+- `POST /api/v1/inventory/loans/{id}/return`
+- InventoryRepo (implements InventoryRepository — categories, items, loans with transactional state transitions)
+- services/inventory_service.go (asset number auto-gen, item availability validation, loan target validation)

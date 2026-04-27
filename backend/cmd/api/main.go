@@ -61,6 +61,10 @@ func main() {
 	roleHandler := handlers.NewRoleHandler(memberSvc)
 	instrumentHandler := handlers.NewInstrumentHandler(memberSvc)
 
+	inventoryRepo := postgres.NewInventoryRepo(pool)
+	inventorySvc := services.NewInventoryService(inventoryRepo)
+	inventoryHandler := handlers.NewInventoryHandler(inventorySvc)
+
 	allowedOrigins := []string{"http://localhost:3000"}
 	if cfg.Env == "production" {
 		allowedOrigins = []string{"https://igreaorganizada.com.br", "https://www.igreaorganizada.com.br"}
@@ -131,6 +135,38 @@ func main() {
 				r.Get("/", instrumentHandler.ListInstruments)
 				r.With(handlers.RequireProfile("leadership")).Post("/", instrumentHandler.CreateInstrument)
 				r.With(handlers.RequireProfile("leadership")).Delete("/{id}", instrumentHandler.DeleteInstrument)
+			})
+
+			// ── Inventory ─────────────────────────────────────────────────
+			r.Route("/inventory", func(r chi.Router) {
+				// Categories
+				r.Route("/categories", func(r chi.Router) {
+					r.Get("/", inventoryHandler.ListCategories)
+					r.With(handlers.RequireProfile("leadership")).Post("/", inventoryHandler.CreateCategory)
+					r.With(handlers.RequireProfile("leadership")).Put("/{id}", inventoryHandler.UpdateCategory)
+					r.With(handlers.RequireProfile("leadership")).Delete("/{id}", inventoryHandler.DeleteCategory)
+				})
+
+				// Items
+				r.Route("/items", func(r chi.Router) {
+					r.Get("/", inventoryHandler.ListItems)
+					r.With(handlers.RequireProfile("leadership")).Post("/", inventoryHandler.CreateItem)
+					r.Get("/{id}", inventoryHandler.GetItemByID)
+					r.With(handlers.RequireProfile("leadership")).Put("/{id}", inventoryHandler.UpdateItem)
+					r.With(handlers.RequireProfile("leadership")).Post("/{id}/photo", inventoryHandler.UploadPhoto)
+					r.With(handlers.RequireProfile("leadership")).Post("/{id}/discard", inventoryHandler.DiscardItem)
+					r.With(handlers.RequireProfile("leadership")).Post("/{id}/donate", inventoryHandler.DonateItem)
+				})
+
+				// Loans
+				r.Route("/loans", func(r chi.Router) {
+					r.With(handlers.RequireProfile("leadership")).Get("/", inventoryHandler.ListLoans)
+					r.Post("/", inventoryHandler.CreateLoan)
+					r.With(handlers.RequireProfile("leadership")).Get("/{id}", inventoryHandler.GetLoanByID)
+					r.With(handlers.RequireProfile("leadership")).Post("/{id}/approve", inventoryHandler.ApproveLoan)
+					r.With(handlers.RequireProfile("leadership")).Post("/{id}/reject", inventoryHandler.RejectLoan)
+					r.With(handlers.RequireProfile("leadership")).Post("/{id}/return", inventoryHandler.ReturnLoan)
+				})
 			})
 		})
 	})

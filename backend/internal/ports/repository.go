@@ -203,3 +203,144 @@ type InstrumentRepository interface {
 	GetInstrumentByID(ctx context.Context, id uuid.UUID) (*Instrument, error)
 	DeleteInstrument(ctx context.Context, id, churchID uuid.UUID) error
 }
+
+// ── Inventory domain types ────────────────────────────────────────────────────
+
+type ItemCategory struct {
+	ID       uuid.UUID
+	ChurchID uuid.UUID
+	Name     string
+	Icon     *string
+}
+
+type Item struct {
+	ID             uuid.UUID
+	ChurchID       uuid.UUID
+	Category       *ItemCategory
+	ItemType       string
+	Name           string
+	Description    *string
+	AssetNumber    *string
+	PhotoURL       *string
+	Location       string
+	Status         string
+	Quantity       int
+	QtyMinAlert    *int
+	SerialNumber   *string
+	Notes          *string
+	DeletedAt      *time.Time
+	DeletionReason *string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+type LoanMember struct {
+	ID    uuid.UUID
+	Name  string
+	Email string
+}
+
+type Loan struct {
+	ID                 uuid.UUID
+	Item               Item
+	RequestedBy        LoanMember
+	ApprovedBy         *LoanMember
+	LoanToType         string
+	LoanToID           uuid.UUID
+	LoanToName         string
+	Status             string
+	ExpectedReturnDate *time.Time
+	ActualReturnDate   *time.Time
+	ReturnCondition    *string
+	ReturnNotes        *string
+	CreatedAt          time.Time
+	ReturnedAt         *time.Time
+}
+
+type ItemCategoryCreateInput struct {
+	Name string
+	Icon *string
+}
+
+type ItemCreateInput struct {
+	ItemType     string
+	Name         string
+	Description  *string
+	CategoryID   *uuid.UUID
+	AssetNumber  *string
+	Location     string
+	Quantity     int
+	QtyMinAlert  *int
+	SerialNumber *string
+	Notes        *string
+}
+
+type ItemUpdateInput struct {
+	Name         string
+	Description  *string
+	CategoryID   *uuid.UUID
+	Location     string
+	Status       string
+	Quantity     int
+	QtyMinAlert  *int
+	SerialNumber *string
+	Notes        *string
+}
+
+type ListItemsFilter struct {
+	Page           int
+	PerPage        int
+	Search         *string
+	CategoryID     *uuid.UUID
+	Status         *string
+	ItemType       *string
+	IncludeDeleted bool
+}
+
+type ListLoansFilter struct {
+	Page    int
+	PerPage int
+	Status  *string
+}
+
+type LoanCreateInput struct {
+	ItemID             uuid.UUID
+	LoanToType         string
+	LoanToID           uuid.UUID
+	ExpectedReturnDate *time.Time
+}
+
+type LoanReturnInput struct {
+	ReturnCondition string
+	ReturnNotes     *string
+}
+
+type InventoryRepository interface {
+	// Categories
+	ListCategories(ctx context.Context, churchID uuid.UUID) ([]ItemCategory, error)
+	CreateCategory(ctx context.Context, churchID uuid.UUID, input ItemCategoryCreateInput) (*ItemCategory, error)
+	GetCategoryByID(ctx context.Context, id, churchID uuid.UUID) (*ItemCategory, error)
+	UpdateCategory(ctx context.Context, id, churchID uuid.UUID, input ItemCategoryCreateInput) (*ItemCategory, error)
+	DeleteCategory(ctx context.Context, id, churchID uuid.UUID) error
+
+	// Items
+	ListItems(ctx context.Context, churchID uuid.UUID, filter ListItemsFilter) ([]Item, int, error)
+	CreateItem(ctx context.Context, churchID uuid.UUID, input ItemCreateInput) (*Item, error)
+	GetItemByID(ctx context.Context, id, churchID uuid.UUID) (*Item, error)
+	UpdateItem(ctx context.Context, id, churchID uuid.UUID, input ItemUpdateInput) (*Item, error)
+	UpdateItemPhotoURL(ctx context.Context, id, churchID uuid.UUID, photoURL string) error
+	SoftDeleteItem(ctx context.Context, id, churchID uuid.UUID, reason string) error
+	CountItemsWithPrefix(ctx context.Context, churchID uuid.UUID, prefix string) (int, error)
+
+	// Loans
+	ListLoans(ctx context.Context, churchID uuid.UUID, filter ListLoansFilter) ([]Loan, int, error)
+	CreateLoan(ctx context.Context, churchID uuid.UUID, requestedBy uuid.UUID, input LoanCreateInput) (*Loan, error)
+	GetLoanByID(ctx context.Context, id, churchID uuid.UUID) (*Loan, error)
+	ApproveLoan(ctx context.Context, id, approvedBy, churchID uuid.UUID) (*Loan, error)
+	RejectLoan(ctx context.Context, id, churchID uuid.UUID) (*Loan, error)
+	ReturnLoan(ctx context.Context, id, churchID uuid.UUID, input LoanReturnInput) (*Loan, error)
+
+	// Validation helpers
+	MemberBelongsToChurch(ctx context.Context, memberID, churchID uuid.UUID) (bool, error)
+	ChurchExists(ctx context.Context, churchID uuid.UUID) (bool, error)
+}
