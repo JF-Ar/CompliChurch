@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
+import { useMe } from "@/hooks/useMembers";
 import { useLoans, useApproveLoan, useRejectLoan, useReturnLoan } from "@/hooks/useInventory";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -63,6 +64,11 @@ export default function LoansPage() {
   const [confirmRejectId, setConfirmRejectId] = useState<string | null>(null);
   const [returnLoan, setReturnLoan] = useState<Loan | null>(null);
   const [returnError, setReturnError] = useState<string | null>(null);
+
+  const { data: meData } = useMe();
+  const isLeadership = meData?.roles.some(
+    (r) => r.base_profile === "leadership" || r.base_profile === "pastor"
+  );
 
   const { data, isLoading, error } = useLoans({
     status: statusFilter || undefined,
@@ -198,6 +204,7 @@ export default function LoansPage() {
                   setReturnLoan(l);
                 }}
                 isApproving={isApproving}
+                isLeadership={!!isLeadership}
               />
             ))}
           </div>
@@ -252,6 +259,7 @@ export default function LoansPage() {
                           setReturnLoan(l);
                         }}
                         isApproving={isApproving}
+                        isLeadership={!!isLeadership}
                       />
                     </td>
                   </tr>
@@ -383,13 +391,16 @@ function LoanActions({
   onReject,
   onReturn,
   isApproving,
+  isLeadership,
 }: {
   loan: Loan;
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
   onReturn: (loan: Loan) => void;
   isApproving: boolean;
+  isLeadership: boolean;
 }) {
+  if (!isLeadership) return <span className="text-xs text-muted-foreground">—</span>;
   if (loan.status === "pending") {
     return (
       <div className="flex gap-2">
@@ -424,12 +435,14 @@ function LoanCard({
   onReject,
   onReturn,
   isApproving,
+  isLeadership,
 }: {
   loan: Loan;
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
   onReturn: (loan: Loan) => void;
   isApproving: boolean;
+  isLeadership: boolean;
 }) {
   return (
     <div className="rounded-lg border p-4 flex flex-col gap-2">
@@ -454,6 +467,7 @@ function LoanCard({
         onReject={onReject}
         onReturn={onReturn}
         isApproving={isApproving}
+        isLeadership={isLeadership}
       />
     </div>
   );
