@@ -46,6 +46,8 @@ type itemResponse struct {
 	QtyMinAlert    *int                  `json:"qty_min_alert"`
 	SerialNumber   *string               `json:"serial_number"`
 	Notes          *string               `json:"notes"`
+	DeletedAt      *time.Time            `json:"deleted_at"`
+	DeletionReason *string               `json:"deletion_reason"`
 	CreatedAt      time.Time             `json:"created_at"`
 	UpdatedAt      time.Time             `json:"updated_at"`
 }
@@ -98,9 +100,11 @@ func buildItemResponse(item *ports.Item) itemResponse {
 		Quantity:     item.Quantity,
 		QtyMinAlert:  item.QtyMinAlert,
 		SerialNumber: item.SerialNumber,
-		Notes:        item.Notes,
-		CreatedAt:    item.CreatedAt,
-		UpdatedAt:    item.UpdatedAt,
+		Notes:          item.Notes,
+		DeletedAt:      item.DeletedAt,
+		DeletionReason: item.DeletionReason,
+		CreatedAt:      item.CreatedAt,
+		UpdatedAt:      item.UpdatedAt,
 	}
 	if item.Category != nil {
 		c := buildCategoryResponse(item.Category)

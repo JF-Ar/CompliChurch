@@ -784,6 +784,15 @@ components:
         notes:
           type: string
           nullable: true
+        deleted_at:
+          $ref: "#/components/schemas/Timestamp"
+          nullable: true
+          description: "Non-null = item was soft-deleted (discarded or donated)"
+        deletion_reason:
+          type: string
+          nullable: true
+          enum: [discarded, donated]
+          description: "Reason for soft delete. Null when item is active."
         created_at:
           $ref: "#/components/schemas/Timestamp"
         updated_at:
