@@ -15,13 +15,28 @@ All file paths below are relative to `frontend/` unless prefixed with `../`.
 ## mandatory first steps
 Before writing any code, read these files completely — in this order:
 1. `../contracts/ARCHITECTURE.md` — stack decisions, folder structure, auth flow, API conventions, full endpoint list
-2. `../contracts/openapi.yaml` — all endpoint contracts, request/response types
+2. The relevant domain OpenAPI file(s) for your current task (see **contracts** below)
 3. `../contracts/UI_UX_STANDARDS.md` — the UI/UX quality bar this product is held to
 
 Then generate the TypeScript types from the OpenAPI spec (see **type generation** below).
 
 Do not write a single line of code before finishing all three reads and running type generation.
 Do not invent endpoints, field names, or types not documented in those files.
+
+## contracts
+- Read `../contracts/ARCHITECTURE.md` fully — always
+- Read `../contracts/openapi/` domain files relevant to your current task only:
+  - Auth task        → `../contracts/openapi/auth.yaml`
+  - Churches task    → `../contracts/openapi/churches.yaml`
+  - Members task     → `../contracts/openapi/members.yaml`
+  - Roles task       → `../contracts/openapi/roles.yaml`
+  - Instruments task → `../contracts/openapi/instruments.yaml`
+  - Agenda task      → `../contracts/openapi/agenda.yaml`
+  - Worship task     → `../contracts/openapi/worship.yaml`
+  - Inventory task   → `../contracts/openapi/inventory.yaml`
+  - Preaching task   → `../contracts/openapi/preaching.yaml`
+- Read `../contracts/openapi/index.yaml` only when you need the full picture
+- Never read `../contracts/openapi.yaml` (monolithic file) — use the split files
 
 ## filesystem boundary
 - You work exclusively inside `frontend/`
@@ -46,7 +61,7 @@ Types are generated from `../contracts/openapi.yaml` using `openapi-typescript`.
 Run this before writing any API client code:
 
 ```bash
-npx openapi-typescript ../contracts/openapi.yaml -o lib/api-types.ts
+npx openapi-typescript ../contracts/openapi/index.yaml -o lib/api-types.ts
 ```
 
 Import all API types from `lib/api-types.ts`.

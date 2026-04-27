@@ -1,0 +1,629 @@
+paths:
+
+  /inventory/categories:
+    get:
+      tags: [Inventory]
+      summary: List item categories
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ItemCategory"
+    post:
+      tags: [Inventory]
+      summary: Create category
+      description: "Required role: leadership"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ItemCategoryCreate"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItemCategory"
+
+  /inventory/categories/{id}:
+    put:
+      tags: [Inventory]
+      summary: Update category
+      description: "Required role: leadership"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ItemCategoryCreate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItemCategory"
+    delete:
+      tags: [Inventory]
+      summary: Delete category
+      description: "Required role: leadership"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "204":
+          description: Deleted
+
+  /inventory/items:
+    get:
+      tags: [Inventory]
+      summary: List items
+      description: "Excludes soft-deleted items by default. Photo URLs are pre-signed (1h TTL)."
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: category_id
+          in: query
+          schema:
+            $ref: "#/components/schemas/UUID"
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [available, on_loan, maintenance]
+        - name: item_type
+          in: query
+          schema:
+            type: string
+            enum: [asset, consumable]
+        - name: include_deleted
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: "Required role: leadership"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Item"
+                  meta:
+                    $ref: "#/components/schemas/PaginationMeta"
+    post:
+      tags: [Inventory]
+      summary: Create item
+      description: "Required role: leadership"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ItemCreate"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Item"
+
+  /inventory/items/{id}:
+    get:
+      tags: [Inventory]
+      summary: Get item detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Item"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Inventory]
+      summary: Update item
+      description: "Required role: leadership"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ItemUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Item"
+
+  /inventory/items/{id}/photo:
+    post:
+      tags: [Inventory]
+      summary: Upload item photo
+      description: "Required role: leadership. Multipart upload. Max 5MB. Stored in Cloudflare R2."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                photo:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Photo uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  photo_url:
+                    type: string
+
+  /inventory/items/{id}/discard:
+    post:
+      tags: [Inventory]
+      summary: Discard item (soft delete)
+      description: "Required role: leadership. Sets deleted_at and deletion_reason = discarded."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ItemDispose"
+      responses:
+        "204":
+          description: Discarded
+
+  /inventory/items/{id}/donate:
+    post:
+      tags: [Inventory]
+      summary: Mark item as donated (soft delete)
+      description: "Required role: leadership. Sets deleted_at and deletion_reason = donated."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ItemDispose"
+      responses:
+        "204":
+          description: Donated
+
+  /inventory/loans:
+    get:
+      tags: [Inventory]
+      summary: List all loans
+      description: "Required role: leadership"
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, active, returned, returned_with_issue, rejected]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Loan"
+                  meta:
+                    $ref: "#/components/schemas/PaginationMeta"
+    post:
+      tags: [Inventory]
+      summary: Request a loan
+      description: "Any authenticated member can request. Status starts as pending."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoanCreate"
+      responses:
+        "201":
+          description: Loan requested
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Loan"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /inventory/loans/{id}:
+    get:
+      tags: [Inventory]
+      summary: Get loan detail
+      description: "Required role: leadership"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Loan"
+
+  /inventory/loans/{id}/approve:
+    post:
+      tags: [Inventory]
+      summary: Approve loan request
+      description: "Required role: leadership. Sets status = active. Sends email to borrower."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Loan"
+
+  /inventory/loans/{id}/reject:
+    post:
+      tags: [Inventory]
+      summary: Reject loan request
+      description: "Required role: leadership. Sets status = rejected. Sends email to requester."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "200":
+          description: Rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Loan"
+
+  /inventory/loans/{id}/return:
+    post:
+      tags: [Inventory]
+      summary: Register item return
+      description: |
+        Required role: leadership.
+        If return_condition is damaged or lost, item status is automatically
+        set to maintenance.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoanReturn"
+      responses:
+        "200":
+          description: Return registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Loan"
+
+components:
+  schemas:
+
+    ItemCategory:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        church_id:
+          $ref: "#/components/schemas/UUID"
+        name:
+          type: string
+          example: "Instruments"
+        icon:
+          type: string
+          nullable: true
+          example: "guitar"
+
+    ItemCategoryCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        icon:
+          type: string
+          nullable: true
+
+    Item:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        church_id:
+          $ref: "#/components/schemas/UUID"
+        category:
+          $ref: "#/components/schemas/ItemCategory"
+          nullable: true
+        item_type:
+          type: string
+          enum: [asset, consumable]
+        name:
+          type: string
+          example: "Yamaha FG800 Acoustic Guitar"
+        description:
+          type: string
+          nullable: true
+        asset_number:
+          type: string
+          nullable: true
+          example: "INST-001"
+        photo_url:
+          type: string
+          nullable: true
+          description: "Pre-signed URL valid for 1 hour"
+        location:
+          type: string
+          example: "Main Hall"
+        status:
+          type: string
+          enum: [available, on_loan, maintenance]
+        quantity:
+          type: integer
+          example: 1
+        qty_min_alert:
+          type: integer
+          nullable: true
+        serial_number:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        deleted_at:
+          $ref: "#/components/schemas/Timestamp"
+          nullable: true
+          description: "Non-null = item was soft-deleted (discarded or donated)"
+        deletion_reason:
+          type: string
+          nullable: true
+          enum: [discarded, donated]
+          description: "Reason for soft delete. Null when item is active."
+        created_at:
+          $ref: "#/components/schemas/Timestamp"
+        updated_at:
+          $ref: "#/components/schemas/Timestamp"
+
+    ItemCreate:
+      type: object
+      required: [item_type, name, location]
+      properties:
+        item_type:
+          type: string
+          enum: [asset, consumable]
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        category_id:
+          $ref: "#/components/schemas/UUID"
+          nullable: true
+        asset_number:
+          type: string
+          nullable: true
+          description: "Required for assets. Auto-generated if omitted."
+        location:
+          type: string
+        quantity:
+          type: integer
+          default: 1
+        qty_min_alert:
+          type: integer
+          nullable: true
+        serial_number:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    ItemUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        category_id:
+          $ref: "#/components/schemas/UUID"
+          nullable: true
+        location:
+          type: string
+        status:
+          type: string
+          enum: [available, on_loan, maintenance]
+        quantity:
+          type: integer
+        qty_min_alert:
+          type: integer
+          nullable: true
+        serial_number:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    ItemDispose:
+      type: object
+      required: [deletion_reason]
+      properties:
+        deletion_reason:
+          type: string
+          enum: [discarded, donated]
+        notes:
+          type: string
+          nullable: true
+
+    Loan:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        item:
+          $ref: "#/components/schemas/Item"
+        requested_by:
+          $ref: "#/components/schemas/MemberSummary"
+        approved_by:
+          $ref: "#/components/schemas/MemberSummary"
+          nullable: true
+        loan_to_type:
+          type: string
+          enum: [church, member]
+        loan_to_id:
+          $ref: "#/components/schemas/UUID"
+        loan_to_name:
+          type: string
+          description: "Resolved name of the church or member"
+          example: "Congregação Vila Nova"
+        status:
+          type: string
+          enum: [pending, active, returned, returned_with_issue, rejected]
+        expected_return_date:
+          $ref: "#/components/schemas/Date"
+          nullable: true
+        actual_return_date:
+          $ref: "#/components/schemas/Date"
+          nullable: true
+        return_condition:
+          type: string
+          nullable: true
+          enum: [good, damaged, lost]
+        return_notes:
+          type: string
+          nullable: true
+        created_at:
+          $ref: "#/components/schemas/Timestamp"
+        returned_at:
+          $ref: "#/components/schemas/Timestamp"
+          nullable: true
+
+    LoanCreate:
+      type: object
+      required: [item_id, loan_to_type, loan_to_id]
+      properties:
+        item_id:
+          $ref: "#/components/schemas/UUID"
+        loan_to_type:
+          type: string
+          enum: [church, member]
+        loan_to_id:
+          $ref: "#/components/schemas/UUID"
+        expected_return_date:
+          $ref: "#/components/schemas/Date"
+          nullable: true
+
+    LoanReturn:
+      type: object
+      required: [return_condition]
+      properties:
+        return_condition:
+          type: string
+          enum: [good, damaged, lost]
+        return_notes:
+          type: string
+          nullable: true

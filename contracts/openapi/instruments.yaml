@@ -1,0 +1,78 @@
+paths:
+
+  /instruments:
+    get:
+      tags: [Instruments]
+      summary: List all instruments
+      description: "Returns system defaults + church custom instruments."
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Instrument"
+    post:
+      tags: [Instruments]
+      summary: Create custom instrument
+      description: "Required role: leadership"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InstrumentCreate"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Instrument"
+
+  /instruments/{id}:
+    delete:
+      tags: [Instruments]
+      summary: Delete custom instrument
+      description: "Required role: leadership. System instruments cannot be deleted."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "204":
+          description: Deleted
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+components:
+  schemas:
+
+    Instrument:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        church_id:
+          $ref: "#/components/schemas/UUID"
+          nullable: true
+        name:
+          type: string
+          example: "Acoustic Guitar"
+        is_system:
+          type: boolean
+
+    InstrumentCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          example: "Pandeiro"

@@ -1,0 +1,459 @@
+paths:
+
+  /agenda/slots:
+    get:
+      tags: [Agenda]
+      summary: List pastor's availability slots
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AvailabilitySlot"
+    post:
+      tags: [Agenda]
+      summary: Create availability slot
+      description: "Required role: pastor"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AvailabilitySlotCreate"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailabilitySlot"
+
+  /agenda/slots/{id}:
+    put:
+      tags: [Agenda]
+      summary: Update availability slot
+      description: "Required role: pastor"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AvailabilitySlotCreate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailabilitySlot"
+    delete:
+      tags: [Agenda]
+      summary: Remove availability slot
+      description: "Required role: pastor"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "204":
+          description: Deleted
+
+  /agenda/events:
+    get:
+      tags: [Agenda]
+      summary: List events
+      description: |
+        Members see only confirmed events.
+        Leadership and above see all statuses.
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [requested, confirmed, declined, cancelled]
+        - name: from
+          in: query
+          schema:
+            $ref: "#/components/schemas/Date"
+        - name: to
+          in: query
+          schema:
+            $ref: "#/components/schemas/Date"
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/EventSummary"
+                  meta:
+                    $ref: "#/components/schemas/PaginationMeta"
+    post:
+      tags: [Agenda]
+      summary: Request an appointment
+      description: "Any authenticated member can request. Status starts as 'requested'."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventCreate"
+      responses:
+        "201":
+          description: Request created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+
+  /agenda/events/{id}:
+    get:
+      tags: [Agenda]
+      summary: Get event detail
+      description: "Members can only see confirmed events. Leadership sees all."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Agenda]
+      summary: Update event
+      description: "Required role: pastor"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+
+  /agenda/events/{id}/confirm:
+    post:
+      tags: [Agenda]
+      summary: Confirm event
+      description: "Required role: pastor. Sends Google Calendar invite to attendees."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "200":
+          description: Confirmed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /agenda/events/{id}/decline:
+    post:
+      tags: [Agenda]
+      summary: Decline event request
+      description: "Required role: pastor. Sends email to requester with decline_reason."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventDecline"
+      responses:
+        "200":
+          description: Declined
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+
+  /agenda/events/{id}/cancel:
+    post:
+      tags: [Agenda]
+      summary: Cancel confirmed event
+      description: "Required role: pastor. Cancels Google Calendar invite."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "200":
+          description: Cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+
+  /agenda/events/{id}/attendees:
+    get:
+      tags: [Agenda]
+      summary: List attendees
+      description: "Required role: leadership"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/EventAttendee"
+    post:
+      tags: [Agenda]
+      summary: Add attendee
+      description: "Required role: pastor"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventAttendeeAdd"
+      responses:
+        "201":
+          description: Attendee added
+
+components:
+  schemas:
+
+    AvailabilitySlot:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        church_id:
+          $ref: "#/components/schemas/UUID"
+        created_by:
+          $ref: "#/components/schemas/UUID"
+        day_of_week:
+          type: integer
+          minimum: 0
+          maximum: 6
+          description: "0 = Sunday, 6 = Saturday"
+          example: 2
+        start_time:
+          type: string
+          example: "09:00"
+        end_time:
+          type: string
+          example: "11:00"
+        is_active:
+          type: boolean
+
+    AvailabilitySlotCreate:
+      type: object
+      required: [day_of_week, start_time, end_time]
+      properties:
+        day_of_week:
+          type: integer
+          minimum: 0
+          maximum: 6
+        start_time:
+          type: string
+          example: "09:00"
+        end_time:
+          type: string
+          example: "11:00"
+
+    Event:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        church_id:
+          $ref: "#/components/schemas/UUID"
+        title:
+          type: string
+          example: "Pastoral visit — João Silva"
+        event_type:
+          type: string
+          enum: [pastoral_visit, counseling, leadership_meeting, block, other]
+        status:
+          type: string
+          enum: [requested, confirmed, declined, cancelled]
+        requested_by:
+          $ref: "#/components/schemas/MemberSummary"
+          nullable: true
+        approved_by:
+          $ref: "#/components/schemas/MemberSummary"
+          nullable: true
+        starts_at:
+          $ref: "#/components/schemas/Timestamp"
+        ends_at:
+          $ref: "#/components/schemas/Timestamp"
+        location:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+          description: "Visible to pastor and leadership only"
+        gcal_event_id:
+          type: string
+          nullable: true
+        attendees:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventAttendee"
+        created_at:
+          $ref: "#/components/schemas/Timestamp"
+
+    EventSummary:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        title:
+          type: string
+        event_type:
+          type: string
+          enum: [pastoral_visit, counseling, leadership_meeting, block, other]
+        status:
+          type: string
+          enum: [requested, confirmed, declined, cancelled]
+        starts_at:
+          $ref: "#/components/schemas/Timestamp"
+        ends_at:
+          $ref: "#/components/schemas/Timestamp"
+
+    EventCreate:
+      type: object
+      required: [title, event_type, starts_at, ends_at]
+      properties:
+        title:
+          type: string
+          example: "Request: pastoral visit"
+        event_type:
+          type: string
+          enum: [pastoral_visit, counseling, leadership_meeting, block, other]
+        starts_at:
+          $ref: "#/components/schemas/Timestamp"
+        ends_at:
+          $ref: "#/components/schemas/Timestamp"
+        location:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        attendee_ids:
+          type: array
+          items:
+            $ref: "#/components/schemas/UUID"
+
+    EventUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        starts_at:
+          $ref: "#/components/schemas/Timestamp"
+        ends_at:
+          $ref: "#/components/schemas/Timestamp"
+        location:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    EventDecline:
+      type: object
+      properties:
+        decline_reason:
+          type: string
+          example: "Already have a commitment at this time."
+
+    EventAttendee:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        member:
+          $ref: "#/components/schemas/MemberSummary"
+        status:
+          type: string
+          enum: [invited, accepted, declined, attended]
+        responded_at:
+          $ref: "#/components/schemas/Timestamp"
+          nullable: true
+
+    EventAttendeeAdd:
+      type: object
+      required: [member_id]
+      properties:
+        member_id:
+          $ref: "#/components/schemas/UUID"

@@ -1,0 +1,86 @@
+paths:
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login successful. Refresh token set as HttpOnly cookie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh access token
+      security: []
+      description: Uses the refresh_token HttpOnly cookie. Returns a new access token and rotates the refresh token cookie.
+      responses:
+        "200":
+          description: New access token issued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RefreshResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout (revoke current session)
+      responses:
+        "204":
+          description: Session revoked.
+
+  /auth/logout-all:
+    post:
+      tags: [Auth]
+      summary: Logout all sessions
+      responses:
+        "204":
+          description: All sessions revoked.
+
+components:
+  schemas:
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+
+    LoginResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: "JWT. Valid for 15 minutes."
+        member:
+          $ref: "#/components/schemas/Member"
+        church:
+          $ref: "#/components/schemas/Church"
+
+    RefreshResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: "New JWT. Valid for 15 minutes. Refresh token cookie is rotated."

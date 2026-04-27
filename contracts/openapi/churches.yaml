@@ -1,0 +1,142 @@
+paths:
+
+  /churches/me:
+    get:
+      tags: [Churches]
+      summary: Get current member's primary church
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Church"
+          description: OK
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      tags: [Churches]
+      summary: Update church info
+      description: "Required role: pastor"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChurchUpdate"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Church"
+          description: Updated
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /churches/me/congregations:
+    get:
+      tags: [Churches]
+      summary: List congregations
+      description: "Required role: leadership"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Church"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Churches]
+      summary: Add congregation
+      description: "Required role: pastor"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CongregationCreate"
+      responses:
+        "201":
+          description: Congregation created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Church"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+components:
+  schemas:
+
+    Church:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        parent_church_id:
+          $ref: "#/components/schemas/UUID"
+          nullable: true
+        name:
+          type: string
+          example: "Primeira Igreja Batista"
+        denomination_name:
+          type: string
+          nullable: true
+          example: "Convenção Batista Brasileira"
+        cnpj:
+          type: string
+          nullable: true
+          example: "00.000.000/0001-00"
+        address:
+          type: string
+          nullable: true
+          example: "Rua das Flores, 123 — Belo Horizonte, MG"
+        is_autonomous:
+          type: boolean
+          example: false
+        plan_tier:
+          type: string
+          enum: [free, basic, growth, enterprise]
+          example: "basic"
+        member_count_cache:
+          type: integer
+          example: 87
+        created_at:
+          $ref: "#/components/schemas/Timestamp"
+
+    ChurchUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        denomination_name:
+          type: string
+          nullable: true
+        cnpj:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        billing_email:
+          type: string
+          format: email
+          nullable: true
+
+    CongregationCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          example: "Congregação Vila Nova"
+        address:
+          type: string
+          nullable: true

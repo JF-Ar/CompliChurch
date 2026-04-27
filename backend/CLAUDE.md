@@ -13,11 +13,26 @@ All file paths below are relative to `backend/` unless prefixed with `../`.
 ## mandatory first steps
 Before writing any code, read these files completely — in this order:
 1. `../contracts/ARCHITECTURE.md` — stack decisions, folder structure, auth flow, API conventions, full endpoint list, algorithms
-2. `../contracts/openapi.yaml` — every request/response schema and endpoint contract
+2. The relevant domain OpenAPI file(s) for your current task (see **contracts** below)
 3. `db/migrations/001_initial_schema.sql` — the full database schema
 
 Do not write a single line of code before finishing all three reads.
 Do not invent endpoints, field names, types, or conventions not documented in those files.
+
+## contracts
+- Read `../contracts/ARCHITECTURE.md` fully — always
+- Read `../contracts/openapi/` domain files relevant to your current task only:
+  - Auth task        → `../contracts/openapi/auth.yaml`
+  - Churches task    → `../contracts/openapi/churches.yaml`
+  - Members task     → `../contracts/openapi/members.yaml`
+  - Roles task       → `../contracts/openapi/roles.yaml`
+  - Instruments task → `../contracts/openapi/instruments.yaml`
+  - Agenda task      → `../contracts/openapi/agenda.yaml`
+  - Worship task     → `../contracts/openapi/worship.yaml`
+  - Inventory task   → `../contracts/openapi/inventory.yaml`
+  - Preaching task   → `../contracts/openapi/preaching.yaml`
+- Read `../contracts/openapi/index.yaml` only when you need the full picture
+- Never read `../contracts/openapi.yaml` (monolithic file) — use the split files
 
 ## filesystem boundary
 - You work exclusively inside `backend/`
@@ -26,8 +41,8 @@ Do not invent endpoints, field names, types, or conventions not documented in th
 - If you need to reference a contract path, use the relative path: `../contracts/ARCHITECTURE.md`
 
 ## contracts/ is read-only
-`../contracts/ARCHITECTURE.md` and `../contracts/openapi.yaml` are the source of truth.
-They are maintained separately. You are a consumer, not an author.
+`../contracts/` files are the source of truth. They are maintained separately.
+You are a consumer, not an author.
 If you find a gap, inconsistency, or missing field in the contracts — stop and report it.
 Do not patch the contracts yourself. Do not work around them silently.
 

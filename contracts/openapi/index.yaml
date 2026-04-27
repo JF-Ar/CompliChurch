@@ -1,0 +1,395 @@
+openapi: "3.1.0"
+
+info:
+  title: Igreja Organizada API
+  version: "1.0.0"
+  description: |
+    REST API for Igreja Organizada MVP.
+    All endpoints require authentication unless marked as public.
+    Multi-tenant isolation is enforced server-side via JWT church_id claim.
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development
+  - url: https://api.igreaorganizada.com.br/api/v1
+    description: Production
+
+security:
+  - BearerAuth: []
+
+# =============================================================================
+# PATHS — assembled from domain files
+# =============================================================================
+paths:
+  # Auth
+  /auth/login:
+    $ref: "./auth.yaml#/paths/~1auth~1login"
+  /auth/refresh:
+    $ref: "./auth.yaml#/paths/~1auth~1refresh"
+  /auth/logout:
+    $ref: "./auth.yaml#/paths/~1auth~1logout"
+  /auth/logout-all:
+    $ref: "./auth.yaml#/paths/~1auth~1logout-all"
+
+  # Churches
+  /churches/me:
+    $ref: "./churches.yaml#/paths/~1churches~1me"
+  /churches/me/congregations:
+    $ref: "./churches.yaml#/paths/~1churches~1me~1congregations"
+
+  # Members
+  /members:
+    $ref: "./members.yaml#/paths/~1members"
+  /members/import:
+    $ref: "./members.yaml#/paths/~1members~1import"
+  /members/me:
+    $ref: "./members.yaml#/paths/~1members~1me"
+  /members/me/instruments:
+    $ref: "./members.yaml#/paths/~1members~1me~1instruments"
+  /members/me/instruments/{instrument_id}:
+    $ref: "./members.yaml#/paths/~1members~1me~1instruments~1{instrument_id}"
+  /members/{id}:
+    $ref: "./members.yaml#/paths/~1members~1{id}"
+  /members/{id}/roles:
+    $ref: "./members.yaml#/paths/~1members~1{id}~1roles"
+  /members/{id}/roles/{role_id}:
+    $ref: "./members.yaml#/paths/~1members~1{id}~1roles~1{role_id}"
+
+  # Roles
+  /roles:
+    $ref: "./roles.yaml#/paths/~1roles"
+  /roles/{id}:
+    $ref: "./roles.yaml#/paths/~1roles~1{id}"
+
+  # Instruments
+  /instruments:
+    $ref: "./instruments.yaml#/paths/~1instruments"
+  /instruments/{id}:
+    $ref: "./instruments.yaml#/paths/~1instruments~1{id}"
+
+  # Agenda
+  /agenda/slots:
+    $ref: "./agenda.yaml#/paths/~1agenda~1slots"
+  /agenda/slots/{id}:
+    $ref: "./agenda.yaml#/paths/~1agenda~1slots~1{id}"
+  /agenda/events:
+    $ref: "./agenda.yaml#/paths/~1agenda~1events"
+  /agenda/events/{id}:
+    $ref: "./agenda.yaml#/paths/~1agenda~1events~1{id}"
+  /agenda/events/{id}/confirm:
+    $ref: "./agenda.yaml#/paths/~1agenda~1events~1{id}~1confirm"
+  /agenda/events/{id}/decline:
+    $ref: "./agenda.yaml#/paths/~1agenda~1events~1{id}~1decline"
+  /agenda/events/{id}/cancel:
+    $ref: "./agenda.yaml#/paths/~1agenda~1events~1{id}~1cancel"
+  /agenda/events/{id}/attendees:
+    $ref: "./agenda.yaml#/paths/~1agenda~1events~1{id}~1attendees"
+
+  # Worship
+  /availability/exceptions:
+    $ref: "./worship.yaml#/paths/~1availability~1exceptions"
+  /availability/exceptions/{id}:
+    $ref: "./worship.yaml#/paths/~1availability~1exceptions~1{id}"
+  /availability/exceptions/all:
+    $ref: "./worship.yaml#/paths/~1availability~1exceptions~1all"
+  /schedules:
+    $ref: "./worship.yaml#/paths/~1schedules"
+  /schedules/suggest/{sunday_date}:
+    $ref: "./worship.yaml#/paths/~1schedules~1suggest~1{sunday_date}"
+  /schedules/{id}:
+    $ref: "./worship.yaml#/paths/~1schedules~1{id}"
+  /schedules/{id}/publish:
+    $ref: "./worship.yaml#/paths/~1schedules~1{id}~1publish"
+  /schedules/{id}/slots:
+    $ref: "./worship.yaml#/paths/~1schedules~1{id}~1slots"
+  /schedules/{id}/slots/{slot_id}:
+    $ref: "./worship.yaml#/paths/~1schedules~1{id}~1slots~1{slot_id}"
+  /schedules/{id}/slots/{slot_id}/confirm:
+    $ref: "./worship.yaml#/paths/~1schedules~1{id}~1slots~1{slot_id}~1confirm"
+
+  # Inventory
+  /inventory/categories:
+    $ref: "./inventory.yaml#/paths/~1inventory~1categories"
+  /inventory/categories/{id}:
+    $ref: "./inventory.yaml#/paths/~1inventory~1categories~1{id}"
+  /inventory/items:
+    $ref: "./inventory.yaml#/paths/~1inventory~1items"
+  /inventory/items/{id}:
+    $ref: "./inventory.yaml#/paths/~1inventory~1items~1{id}"
+  /inventory/items/{id}/photo:
+    $ref: "./inventory.yaml#/paths/~1inventory~1items~1{id}~1photo"
+  /inventory/items/{id}/discard:
+    $ref: "./inventory.yaml#/paths/~1inventory~1items~1{id}~1discard"
+  /inventory/items/{id}/donate:
+    $ref: "./inventory.yaml#/paths/~1inventory~1items~1{id}~1donate"
+  /inventory/loans:
+    $ref: "./inventory.yaml#/paths/~1inventory~1loans"
+  /inventory/loans/{id}:
+    $ref: "./inventory.yaml#/paths/~1inventory~1loans~1{id}"
+  /inventory/loans/{id}/approve:
+    $ref: "./inventory.yaml#/paths/~1inventory~1loans~1{id}~1approve"
+  /inventory/loans/{id}/reject:
+    $ref: "./inventory.yaml#/paths/~1inventory~1loans~1{id}~1reject"
+  /inventory/loans/{id}/return:
+    $ref: "./inventory.yaml#/paths/~1inventory~1loans~1{id}~1return"
+
+  # Notifications
+  /notifications:
+    $ref: "./notifications.yaml#/paths/~1notifications"
+
+  # Preaching
+  /preaching-schedules:
+    $ref: "./preaching.yaml#/paths/~1preaching-schedules"
+  /preaching-schedules/{id}:
+    $ref: "./preaching.yaml#/paths/~1preaching-schedules~1{id}"
+  /preaching-schedules/{id}/publish:
+    $ref: "./preaching.yaml#/paths/~1preaching-schedules~1{id}~1publish"
+  /preaching-schedules/{id}/entries:
+    $ref: "./preaching.yaml#/paths/~1preaching-schedules~1{id}~1entries"
+  /preaching-schedules/{id}/entries/{entry_id}:
+    $ref: "./preaching.yaml#/paths/~1preaching-schedules~1{id}~1entries~1{entry_id}"
+
+# =============================================================================
+# COMPONENTS
+# =============================================================================
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid access token
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Forbidden:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Conflict:
+      description: Conflict with existing resource
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    UnprocessableEntity:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    # ── SHARED (referenced by multiple domains) ──────────────────────────────
+
+    UUID:
+      type: string
+      format: uuid
+      example: "550e8400-e29b-41d4-a716-446655440000"
+
+    Timestamp:
+      type: string
+      format: date-time
+      example: "2025-04-22T14:30:00Z"
+
+    Date:
+      type: string
+      format: date
+      example: "2025-04-22"
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              example: "SCHEDULE_ALREADY_EXISTS"
+            message:
+              type: string
+              example: "A schedule for this Sunday already exists."
+            field:
+              type: string
+              nullable: true
+              example: "sunday_date"
+
+    PaginationMeta:
+      type: object
+      properties:
+        total:
+          type: integer
+          example: 48
+        page:
+          type: integer
+          example: 1
+        per_page:
+          type: integer
+          example: 20
+
+    # MemberSummary is referenced by: members, agenda, worship, preaching
+    MemberSummary:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        name:
+          type: string
+        email:
+          type: string
+        is_active:
+          type: boolean
+
+    # RoleSummary is referenced by: roles, members (Member.roles)
+    RoleSummary:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        name:
+          type: string
+        base_profile:
+          type: string
+          enum: [pastor, leadership, musician, member]
+
+    # Instrument is referenced by: instruments, worship (ScheduleSlot.instrument)
+    Instrument:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        church_id:
+          $ref: "#/components/schemas/UUID"
+          nullable: true
+        name:
+          type: string
+          example: "Acoustic Guitar"
+        is_system:
+          type: boolean
+
+    # Member is referenced by: members, auth (LoginResponse.member)
+    Member:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        name:
+          type: string
+          example: "João Silva"
+        email:
+          type: string
+          format: email
+          example: "joao@example.com"
+        phone:
+          type: string
+          nullable: true
+          example: "+55 31 99999-0000"
+        birth_date:
+          $ref: "#/components/schemas/Date"
+          nullable: true
+        avatar_url:
+          type: string
+          nullable: true
+        is_active:
+          type: boolean
+          example: true
+        roles:
+          type: array
+          items:
+            $ref: "#/components/schemas/RoleSummary"
+        instruments:
+          type: array
+          items:
+            $ref: "#/components/schemas/MemberInstrument"
+        created_at:
+          $ref: "#/components/schemas/Timestamp"
+
+    # MemberInstrument is embedded in Member (shared via members domain)
+    MemberInstrument:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        instrument_id:
+          $ref: "#/components/schemas/UUID"
+        instrument_name:
+          type: string
+          example: "Acoustic Guitar"
+        is_primary:
+          type: boolean
+
+    # Church is referenced by: churches, auth (LoginResponse.church)
+    Church:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        parent_church_id:
+          $ref: "#/components/schemas/UUID"
+          nullable: true
+        name:
+          type: string
+          example: "Primeira Igreja Batista"
+        denomination_name:
+          type: string
+          nullable: true
+          example: "Convenção Batista Brasileira"
+        cnpj:
+          type: string
+          nullable: true
+          example: "00.000.000/0001-00"
+        address:
+          type: string
+          nullable: true
+          example: "Rua das Flores, 123 — Belo Horizonte, MG"
+        is_autonomous:
+          type: boolean
+          example: false
+        plan_tier:
+          type: string
+          enum: [free, basic, growth, enterprise]
+          example: "basic"
+        member_count_cache:
+          type: integer
+          example: 87
+        created_at:
+          $ref: "#/components/schemas/Timestamp"
+
+# =============================================================================
+# TAGS
+# =============================================================================
+tags:
+  - name: Auth
+    description: Authentication and session management
+  - name: Churches
+    description: Church and congregation management
+  - name: Members
+    description: Member profiles, roles and instruments
+  - name: Roles
+    description: Role management
+  - name: Instruments
+    description: Instrument catalogue
+  - name: Agenda
+    description: Pastoral calendar and appointment requests
+  - name: Worship
+    description: Worship schedule, availability and suggestions
+  - name: Inventory
+    description: Asset and consumable tracking, loans
+  - name: Preaching
+    description: Monthly preaching schedule (direction + message per Sunday per church)
+  - name: Notifications
+    description: Notification log

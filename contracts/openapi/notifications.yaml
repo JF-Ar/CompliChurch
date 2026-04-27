@@ -1,0 +1,59 @@
+paths:
+
+  /notifications:
+    get:
+      tags: [Notifications]
+      summary: List own notifications
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 30
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Notification"
+                  meta:
+                    $ref: "#/components/schemas/PaginationMeta"
+
+components:
+  schemas:
+
+    Notification:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        channel:
+          type: string
+          enum: [email, push]
+        template:
+          type: string
+        reference_type:
+          type: string
+          nullable: true
+        reference_id:
+          $ref: "#/components/schemas/UUID"
+          nullable: true
+        status:
+          type: string
+          enum: [queued, sent, failed]
+        sent_at:
+          $ref: "#/components/schemas/Timestamp"
+          nullable: true
+        created_at:
+          $ref: "#/components/schemas/Timestamp"

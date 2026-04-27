@@ -1,0 +1,436 @@
+paths:
+
+  /members:
+    get:
+      tags: [Members]
+      summary: List members
+      description: "Required role: leadership"
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [pastor, leadership, musician, member]
+        - name: is_active
+          in: query
+          schema:
+            type: boolean
+            default: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Member"
+                  meta:
+                    $ref: "#/components/schemas/PaginationMeta"
+    post:
+      tags: [Members]
+      summary: Create member and send invite email
+      description: "Required role: leadership"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemberCreate"
+      responses:
+        "201":
+          description: Member created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Member"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /members/import:
+    post:
+      tags: [Members]
+      summary: Bulk import members from CSV
+      description: "Required role: leadership. CSV columns: name, email, phone (optional)"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [members]
+              properties:
+                members:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/MemberImportRow"
+      responses:
+        "200":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemberImportResult"
+
+  /members/me:
+    get:
+      tags: [Members]
+      summary: Get own profile
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Member"
+    put:
+      tags: [Members]
+      summary: Update own profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemberUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Member"
+
+  /members/me/instruments:
+    get:
+      tags: [Members]
+      summary: List own instruments
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/MemberInstrument"
+    post:
+      tags: [Members]
+      summary: Add instrument to own profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemberInstrumentAdd"
+      responses:
+        "201":
+          description: Added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemberInstrument"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /members/me/instruments/{instrument_id}:
+    delete:
+      tags: [Members]
+      summary: Remove instrument from own profile
+      parameters:
+        - name: instrument_id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "204":
+          description: Removed
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /members/{id}:
+    get:
+      tags: [Members]
+      summary: Get member detail
+      description: "Required role: leadership"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Member"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Members]
+      summary: Update member
+      description: "Required role: leadership"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemberUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Member"
+    delete:
+      tags: [Members]
+      summary: Deactivate member
+      description: "Required role: pastor. Sets is_active = false. Record is kept."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "204":
+          description: Deactivated
+
+  /members/{id}/roles:
+    get:
+      tags: [Members]
+      summary: List roles assigned to member
+      description: "Required role: leadership"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/RoleSummary"
+    post:
+      tags: [Members]
+      summary: Assign role to member
+      description: "Required role: leadership"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoleAssign"
+      responses:
+        "201":
+          description: Role assigned
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /members/{id}/roles/{role_id}:
+    delete:
+      tags: [Members]
+      summary: Remove role from member
+      description: "Required role: leadership"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+        - name: role_id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "204":
+          description: Role removed
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  schemas:
+
+    Member:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        name:
+          type: string
+          example: "João Silva"
+        email:
+          type: string
+          format: email
+          example: "joao@example.com"
+        phone:
+          type: string
+          nullable: true
+          example: "+55 31 99999-0000"
+        birth_date:
+          $ref: "#/components/schemas/Date"
+          nullable: true
+        avatar_url:
+          type: string
+          nullable: true
+        is_active:
+          type: boolean
+          example: true
+        roles:
+          type: array
+          items:
+            $ref: "#/components/schemas/RoleSummary"
+        instruments:
+          type: array
+          items:
+            $ref: "#/components/schemas/MemberInstrument"
+        created_at:
+          $ref: "#/components/schemas/Timestamp"
+
+    MemberSummary:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        name:
+          type: string
+        email:
+          type: string
+        is_active:
+          type: boolean
+
+    MemberCreate:
+      type: object
+      required: [name, email]
+      properties:
+        name:
+          type: string
+          example: "João Silva"
+        email:
+          type: string
+          format: email
+          example: "joao@example.com"
+        phone:
+          type: string
+          nullable: true
+        birth_date:
+          type: string
+          format: date
+          nullable: true
+        role_ids:
+          type: array
+          items:
+            $ref: "#/components/schemas/UUID"
+          description: "Role IDs to assign on creation"
+
+    MemberUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        birth_date:
+          type: string
+          format: date
+          nullable: true
+
+    MemberImportRow:
+      type: object
+      required: [name, email]
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          nullable: true
+
+    MemberImportResult:
+      type: object
+      properties:
+        created:
+          type: integer
+          example: 42
+        skipped:
+          type: integer
+          example: 3
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              row:
+                type: integer
+              reason:
+                type: string
+
+    MemberInstrument:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        instrument_id:
+          $ref: "#/components/schemas/UUID"
+        instrument_name:
+          type: string
+          example: "Acoustic Guitar"
+        is_primary:
+          type: boolean
+
+    MemberInstrumentAdd:
+      type: object
+      required: [instrument_id]
+      properties:
+        instrument_id:
+          $ref: "#/components/schemas/UUID"
+        is_primary:
+          type: boolean
+          default: false

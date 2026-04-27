@@ -1,0 +1,507 @@
+paths:
+
+  /availability/exceptions:
+    get:
+      tags: [Worship]
+      summary: List own unavailability exceptions
+      parameters:
+        - name: month
+          in: query
+          schema:
+            type: string
+            example: "2025-05"
+            description: "YYYY-MM format. Defaults to current month."
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AvailabilityException"
+    post:
+      tags: [Worship]
+      summary: Mark a Sunday as unavailable
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AvailabilityExceptionCreate"
+      responses:
+        "201":
+          description: Exception created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailabilityException"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /availability/exceptions/{id}:
+    delete:
+      tags: [Worship]
+      summary: Remove unavailability exception
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "204":
+          description: Removed
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /availability/exceptions/all:
+    get:
+      tags: [Worship]
+      summary: List all exceptions for the church
+      description: "Required role: leadership. Used by the schedule suggestion engine."
+      parameters:
+        - name: month
+          in: query
+          required: true
+          schema:
+            type: string
+            example: "2025-05"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AvailabilityExceptionWithMember"
+
+  /schedules:
+    get:
+      tags: [Worship]
+      summary: List schedules
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 12
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, published, cancelled]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ScheduleSummary"
+                  meta:
+                    $ref: "#/components/schemas/PaginationMeta"
+    post:
+      tags: [Worship]
+      summary: Create schedule (draft)
+      description: "Required role: leadership"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScheduleCreate"
+      responses:
+        "201":
+          description: Schedule created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Schedule"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /schedules/suggest/{sunday_date}:
+    get:
+      tags: [Worship]
+      summary: Get auto-suggestion for a Sunday
+      description: "Required role: leadership. See ARCHITECTURE.md section 6 for algorithm details."
+      parameters:
+        - name: sunday_date
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/Date"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScheduleSuggestion"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+
+  /schedules/{id}:
+    get:
+      tags: [Worship]
+      summary: Get schedule with all slots
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Schedule"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Worship]
+      summary: Update schedule metadata
+      description: "Required role: leadership"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScheduleUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Schedule"
+    delete:
+      tags: [Worship]
+      summary: Cancel schedule
+      description: "Required role: leadership"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "204":
+          description: Cancelled
+
+  /schedules/{id}/publish:
+    post:
+      tags: [Worship]
+      summary: Publish schedule
+      description: "Required role: leadership. Sends email notification to all members in slots."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "200":
+          description: Published
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Schedule"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+
+  /schedules/{id}/slots:
+    get:
+      tags: [Worship]
+      summary: List slots in schedule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ScheduleSlot"
+    post:
+      tags: [Worship]
+      summary: Add member to schedule
+      description: "Required role: leadership"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScheduleSlotAdd"
+      responses:
+        "201":
+          description: Slot added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScheduleSlot"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /schedules/{id}/slots/{slot_id}:
+    delete:
+      tags: [Worship]
+      summary: Remove member from schedule
+      description: "Required role: leadership"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+        - name: slot_id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "204":
+          description: Removed
+
+  /schedules/{id}/slots/{slot_id}/confirm:
+    post:
+      tags: [Worship]
+      summary: Member confirms own slot
+      description: "Required role: musician. Member can only confirm their own slot."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+        - name: slot_id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "200":
+          description: Confirmed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScheduleSlot"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+components:
+  schemas:
+
+    AvailabilityException:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        member_id:
+          $ref: "#/components/schemas/UUID"
+        church_id:
+          $ref: "#/components/schemas/UUID"
+        unavailable_date:
+          $ref: "#/components/schemas/Date"
+        reason:
+          type: string
+          nullable: true
+        created_at:
+          $ref: "#/components/schemas/Timestamp"
+
+    AvailabilityExceptionCreate:
+      type: object
+      required: [unavailable_date]
+      properties:
+        unavailable_date:
+          $ref: "#/components/schemas/Date"
+        reason:
+          type: string
+          nullable: true
+
+    AvailabilityExceptionWithMember:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        member:
+          $ref: "#/components/schemas/MemberSummary"
+        unavailable_date:
+          $ref: "#/components/schemas/Date"
+        reason:
+          type: string
+          nullable: true
+
+    Schedule:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        church_id:
+          $ref: "#/components/schemas/UUID"
+        sunday_date:
+          $ref: "#/components/schemas/Date"
+        status:
+          type: string
+          enum: [draft, published, cancelled]
+        created_by:
+          $ref: "#/components/schemas/MemberSummary"
+        approved_by:
+          $ref: "#/components/schemas/MemberSummary"
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        published_at:
+          $ref: "#/components/schemas/Timestamp"
+          nullable: true
+        slots:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScheduleSlot"
+        created_at:
+          $ref: "#/components/schemas/Timestamp"
+
+    ScheduleSummary:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        sunday_date:
+          $ref: "#/components/schemas/Date"
+        status:
+          type: string
+          enum: [draft, published, cancelled]
+        slot_count:
+          type: integer
+        published_at:
+          $ref: "#/components/schemas/Timestamp"
+          nullable: true
+
+    ScheduleCreate:
+      type: object
+      required: [sunday_date]
+      properties:
+        sunday_date:
+          $ref: "#/components/schemas/Date"
+        notes:
+          type: string
+          nullable: true
+
+    ScheduleUpdate:
+      type: object
+      properties:
+        notes:
+          type: string
+          nullable: true
+
+    ScheduleSlot:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        schedule_id:
+          $ref: "#/components/schemas/UUID"
+        member:
+          $ref: "#/components/schemas/MemberSummary"
+        instrument:
+          $ref: "#/components/schemas/Instrument"
+          nullable: true
+        function_in_scale:
+          type: string
+          example: "Acoustic Guitar"
+        confirmed:
+          type: boolean
+        notified_at:
+          $ref: "#/components/schemas/Timestamp"
+          nullable: true
+
+    ScheduleSlotAdd:
+      type: object
+      required: [member_id, function_in_scale]
+      properties:
+        member_id:
+          $ref: "#/components/schemas/UUID"
+        instrument_id:
+          $ref: "#/components/schemas/UUID"
+          nullable: true
+        function_in_scale:
+          type: string
+          example: "Acoustic Guitar"
+
+    ScheduleSuggestion:
+      type: object
+      properties:
+        sunday_date:
+          $ref: "#/components/schemas/Date"
+        suggested_slots:
+          type: array
+          items:
+            type: object
+            properties:
+              member_id:
+                $ref: "#/components/schemas/UUID"
+              member_name:
+                type: string
+              instrument_id:
+                $ref: "#/components/schemas/UUID"
+              instrument_name:
+                type: string
+              warning:
+                type: string
+                nullable: true
+                enum: [consecutive_sunday, null]
+        available_members:
+          type: array
+          items:
+            $ref: "#/components/schemas/MemberSummary"
+        unavailable_members:
+          type: array
+          items:
+            type: object
+            properties:
+              member:
+                $ref: "#/components/schemas/MemberSummary"
+              reason:
+                type: string
+                nullable: true
