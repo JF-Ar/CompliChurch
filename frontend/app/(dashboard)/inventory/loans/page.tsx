@@ -21,7 +21,8 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
-import type { ApiError, Loan } from "@/lib/api";
+import type { ApiError } from "@/lib/api";
+import type { Loan } from "@/lib/api/inventory";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

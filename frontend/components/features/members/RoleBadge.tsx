@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import type { RoleSummary } from "@/lib/api";
+import type { RoleSummary } from "@/lib/api/roles";
 
 const PROFILE_VARIANT: Record<string, "default" | "secondary" | "warning" | "muted"> = {
   pastor: "default",

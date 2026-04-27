@@ -102,21 +102,43 @@ Quick reference for agents. Read this only to locate a specific page or check wh
 
 ---
 
-## API Client — lib/api.ts
+## API Client — lib/api/ (split by domain)
 
-All calls go through `apiFetch<T>(path, options)` except login() and register() (raw fetch).
+`lib/api/index.ts` re-exports everything — existing `import { ... } from '@/lib/api'` keeps working.
+All calls go through `apiFetch<T>` in `client.ts` except `login()` and `register()` (raw fetch).
 
-### Auth
+### lib/api/client.ts (85 lines)
+Shared types: `ApiError`, `PaginationMeta`, `ListResponse<T>`
+Core: `apiFetch<T>(path, options)`, `BASE_URL`
+
+### lib/api/auth.ts (58 lines)
+Types: `LoginResponse`, `RegisterRequest`
+Re-exports: `setSession` from `lib/auth.ts`
 - `login(email, password)` → POST /auth/login
 - `register(body)` → POST /auth/register
 - `logout()` → POST /auth/logout
 - `logoutAll()` → POST /auth/logout-all
 
-### Churches
+### lib/api/churches.ts (22 lines)
+Types: `Church`
 - `getMyChurch()` → GET /churches/me
 - `listCongregations()` → GET /churches/me/congregations
 
-### Members
+### lib/api/roles.ts (31 lines)
+Types: `RoleSummary`, `Role`
+- `listRoles()` → GET /roles
+- `createRole(data)` → POST /roles
+- `updateRole(id, data)` → PUT /roles/{id}
+- `deleteRole(id)` → DELETE /roles/{id}
+
+### lib/api/instruments.ts (20 lines)
+Types: `Instrument`
+- `listInstruments()` → GET /instruments
+- `createInstrument(data)` → POST /instruments
+- `deleteInstrument(id)` → DELETE /instruments/{id}
+
+### lib/api/members.ts (134 lines)
+Types: `Member`, `MemberSummary`, `MemberCreate`, `MemberUpdate`, `MemberInstrument`, `MemberInstrumentAdd`
 - `getMe()` → GET /members/me
 - `updateMe(data)` → PUT /members/me
 - `listMembers(params?)` → GET /members
@@ -133,16 +155,8 @@ All calls go through `apiFetch<T>(path, options)` except login() and register() 
 - `assignRole(memberId, roleId)` → POST /members/{id}/roles
 - `removeRole(memberId, roleId)` → DELETE /members/{id}/roles/{roleId}
 
-### Roles & Instruments
-- `listRoles()` → GET /roles
-- `createRole(data)` → POST /roles
-- `updateRole(id, data)` → PUT /roles/{id}
-- `deleteRole(id)` → DELETE /roles/{id}
-- `listInstruments()` → GET /instruments
-- `createInstrument(data)` → POST /instruments
-- `deleteInstrument(id)` → DELETE /instruments/{id}
-
-### Schedules _(functions defined, no UI pages yet)_
+### lib/api/worship.ts (129 lines) _(no UI pages yet)_
+Types: `Schedule`, `ScheduleSummary`, `ScheduleSlot`, `ScheduleSuggestion`, `AvailabilityException`
 - `listSchedules(params?)` → GET /schedules
 - `getSchedule(id)` → GET /schedules/{id}
 - `createSchedule(data)` → POST /schedules
@@ -151,16 +165,16 @@ All calls go through `apiFetch<T>(path, options)` except login() and register() 
 - `addScheduleSlot(scheduleId, data)` → POST /schedules/{id}/slots
 - `removeScheduleSlot(scheduleId, slotId)` → DELETE /schedules/{id}/slots/{slotId}
 - `confirmScheduleSlot(scheduleId, slotId)` → POST /schedules/{id}/slots/{slotId}/confirm
-
-### Availability _(functions defined, no UI pages yet)_
 - `listMyExceptions(month?)` → GET /availability/exceptions
 - `createException(data)` → POST /availability/exceptions
 - `deleteException(id)` → DELETE /availability/exceptions/{id}
 
-### Agenda _(functions defined, no UI pages yet)_
+### lib/api/agenda.ts (26 lines) _(no UI pages yet)_
+Types: `EventSummary`
 - `listEvents(params?)` → GET /agenda/events
 
-### Inventory
+### lib/api/inventory.ts (193 lines)
+Types: `ItemCategory`, `Item`, `ItemCreate`, `ItemUpdate`, `Loan`, `LoanCreate`, `LoanReturn`
 - `listCategories()` → GET /inventory/categories
 - `createCategory(data)` → POST /inventory/categories
 - `updateCategory(id, data)` → PUT /inventory/categories/{id}
@@ -178,6 +192,9 @@ All calls go through `apiFetch<T>(path, options)` except login() and register() 
 - `approveLoan(id)` → POST /inventory/loans/{id}/approve
 - `rejectLoan(id)` → POST /inventory/loans/{id}/reject
 - `returnLoan(id, data)` → POST /inventory/loans/{id}/return
+
+### lib/api/preaching.ts (2 lines) — not yet implemented
+### lib/api/notifications.ts (2 lines) — not yet implemented
 
 ---
 

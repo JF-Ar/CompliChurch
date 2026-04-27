@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { RoleBadge } from "./RoleBadge";
-import type { Member } from "@/lib/api";
+import type { Member } from "@/lib/api/members";
 
 export function MemberCard({ member }: { member: Member }) {
   const initials = member.name
