@@ -8,10 +8,18 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import Link from "next/link";
-import { useCategories, useCreateItem } from "@/hooks/useInventory";
+import { useCategories, useCreateItem, useCreateCategory } from "@/hooks/useInventory";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
 import type { ApiError } from "@/lib/api";
 
 const schema = z.object({
@@ -27,26 +35,41 @@ const schema = z.object({
   notes: z.string().optional(),
 });
 
+const catSchema = z.object({
+  name: z.string().min(1, "Nome é obrigatório"),
+  icon: z.string().optional(),
+});
+
 type FormValues = z.infer<typeof schema>;
+type CatFormValues = z.infer<typeof catSchema>;
 
 export default function NewInventoryItemPage() {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
+  const [newCatOpen, setNewCatOpen] = useState(false);
+  const [catServerError, setCatServerError] = useState<string | null>(null);
 
   const { data: categoriesData } = useCategories();
   const { mutateAsync: createItem } = useCreateItem();
+  const { mutateAsync: createCategory } = useCreateCategory();
 
   const {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema) as Resolver<FormValues>,
     defaultValues: { quantity: 1, item_type: "asset" },
   });
 
+  const catForm = useForm<CatFormValues>({
+    resolver: zodResolver(catSchema),
+  });
+
   const itemType = watch("item_type");
+  const categoryId = watch("category_id");
 
   async function onSubmit(values: FormValues) {
     setServerError(null);
@@ -69,6 +92,28 @@ export default function NewInventoryItemPage() {
       const e = err as ApiError;
       setServerError(e?.error?.message ?? "Erro inesperado. Tente novamente.");
     }
+  }
+
+  async function onCreateCategory(values: CatFormValues) {
+    setCatServerError(null);
+    try {
+      const newCat = await createCategory({ name: values.name, icon: values.icon || null });
+      setValue("category_id", newCat.id);
+      setNewCatOpen(false);
+      catForm.reset();
+      toast.success("Categoria criada.");
+    } catch (err) {
+      const e = err as ApiError;
+      setCatServerError(e?.error?.message ?? "Erro inesperado. Tente novamente.");
+    }
+  }
+
+  function handleCatModalOpenChange(open: boolean) {
+    if (!open) {
+      catForm.reset();
+      setCatServerError(null);
+    }
+    setNewCatOpen(open);
   }
 
   return (
@@ -118,12 +163,19 @@ export default function NewInventoryItemPage() {
           {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
         </div>
 
-        {/* category */}
+        {/* category — controlled to intercept "+ Nova categoria" sentinel */}
         <div className="flex flex-col gap-2">
           <Label htmlFor="category_id">Categoria</Label>
           <select
             id="category_id"
-            {...register("category_id")}
+            value={categoryId ?? ""}
+            onChange={(e) => {
+              if (e.target.value === "__new__") {
+                setNewCatOpen(true);
+              } else {
+                setValue("category_id", e.target.value);
+              }
+            }}
             className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
           >
             <option value="">Sem categoria</option>
@@ -132,6 +184,7 @@ export default function NewInventoryItemPage() {
                 {c.name}
               </option>
             ))}
+            <option value="__new__">+ Nova categoria</option>
           </select>
         </div>
 
@@ -210,6 +263,53 @@ export default function NewInventoryItemPage() {
           {isSubmitting ? "Salvando…" : "Cadastrar item"}
         </Button>
       </form>
+
+      {/* New category dialog — does not navigate away; main form state is preserved */}
+      <Dialog open={newCatOpen} onOpenChange={handleCatModalOpenChange}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nova categoria</DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={catForm.handleSubmit(onCreateCategory)}
+            className="flex flex-col gap-4 mt-2"
+          >
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="cat-name">Nome *</Label>
+              <Input id="cat-name" {...catForm.register("name")} />
+              {catForm.formState.errors.name && (
+                <p className="text-xs text-destructive">
+                  {catForm.formState.errors.name.message}
+                </p>
+              )}
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="cat-icon">Ícone</Label>
+              <Input
+                id="cat-icon"
+                {...catForm.register("icon")}
+                placeholder="ex: guitar, chair"
+              />
+              <p className="text-xs text-muted-foreground">
+                Opcional. Nome descritivo do ícone.
+              </p>
+            </div>
+            {catServerError && (
+              <p className="text-sm text-destructive text-center">{catServerError}</p>
+            )}
+            <DialogFooter className="flex gap-2 pt-2">
+              <DialogClose asChild>
+                <Button type="button" variant="outline">
+                  Cancelar
+                </Button>
+              </DialogClose>
+              <Button type="submit" disabled={catForm.formState.isSubmitting}>
+                {catForm.formState.isSubmitting ? "Criando…" : "Criar"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
