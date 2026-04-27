@@ -208,6 +208,78 @@ async function onSubmit(values: FormValues) {
 - Pattern: `cva(base, { variants })` + `cn()` + `React.forwardRef` + `VariantProps`
 - Never modify files in `components/ui/` — extend in `components/features/`
 - Import path alias: `@/components/ui/button` (always `@/`, never relative)
+- Available primitives: `button`, `input`, `label`, `badge`, `skeleton`, `dialog`, `sonner`
+- `badge` variants: `default`, `secondary`, `destructive`, `outline`, `success`, `warning`, `muted`
+- `dialog` exports: `Dialog`, `DialogContent`, `DialogHeader`, `DialogTitle`, `DialogDescription`, `DialogFooter`, `DialogClose`, `DialogTrigger`
+- `Dialog` usage: `<Dialog open={bool} onOpenChange={fn}>` — controlled, no trigger needed
+- `DialogClose asChild` wraps a `<Button>` for the cancel action
+
+### role checking
+```tsx
+const { data: meData } = useMe();  // from @/hooks/useMembers
+const isLeadership = meData?.roles.some(
+  (r) => r.base_profile === "leadership" || r.base_profile === "pastor"
+);
+```
+
+### hooks pattern (`hooks/use*.ts`)
+```ts
+"use client";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+
+export const domainKeys = {
+  all: ["domain"] as const,
+  list: (params?: object) => ["domain", "list", params] as const,
+  detail: (id: string) => ["domain", id] as const,
+};
+
+export function useDomainItems(params?: { ... }) {
+  return useQuery({ queryKey: domainKeys.list(params), queryFn: () => apiCall(params) });
+}
+
+export function useCreateDomainItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: apiCall,
+    onSuccess: () => qc.invalidateQueries({ queryKey: domainKeys.all }),
+  });
+}
+```
+- Mutation with dynamic id: `mutationFn: (data) => apiCall(id, data)` where `id` is closed over
+- Mutation with id + data: `mutationFn: ({ id, data }: { id: string; data: T }) => apiCall(id, data)`
+
+### zod + react-hook-form (Zod v4 + @hookform/resolvers v5)
+- `z.enum(["a", "b"])` — no `required_error`, second arg is a string or `{ message }`
+- `z.coerce.number()` — works at runtime but causes TS type mismatch with zodResolver; fix with:
+  ```ts
+  import type { Resolver } from "react-hook-form";
+  useForm<FormValues>({ resolver: zodResolver(schema) as Resolver<FormValues> })
+  ```
+- `z.coerce.number().int().min(1)` for required integer inputs
+- `z.coerce.number().int().min(0).nullable().optional()` for optional integer inputs
+- `z.string().optional()` for optional text inputs (empty string is fine, filter with `|| null` in submit)
+
+### navigation (`components/features/DashboardNav.tsx`)
+- Bottom nav (mobile) + sidebar (desktop) already renders: Membros, Escala, Agenda, Patrimônio, Meu Perfil
+- Active state: `pathname === href || pathname.startsWith(href + "/")`
+- Exception for `/members/me`: explicitly excluded from Membros active state
+
+### date / timestamp helpers (no date-fns needed)
+```ts
+// date string "2026-05-30" → "30/05/2026"
+function formatDate(d: string | null | undefined) {
+  if (!d) return "—";
+  const [y, m, day] = d.split("-");
+  return `${day}/${m}/${y}`;
+}
+// ISO timestamp → pt-BR
+function formatTimestamp(ts: string) {
+  return new Date(ts).toLocaleDateString("pt-BR", {
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
+}
+```
 
 ### error handling
 - Catch errors as `ApiError` type, access via `err?.error?.message`
@@ -266,3 +338,9 @@ Keep it as a flat list. Do not describe — just list.
 - lib/api.ts — added getMemberInstruments, addMemberInstrument, removeMemberInstrument (GET/POST/DELETE /members/{id}/instruments)
 - hooks/useMembers.ts — added memberInstrumentKeys, useMemberInstruments, useAddMemberInstrument, useRemoveMemberInstrument
 - app/(dashboard)/members/[id]/page.tsx — instruments section now fully interactive: fetches via useMemberInstruments, shows remove button (leadership+ only), add dropdown (leadership+ only), 409 INSTRUMENT_ALREADY_ADDED shown as inline error
+- lib/api.ts — added createCategory, updateCategory, deleteCategory, createItem, updateItem, discardItem, donateItem, createLoan, getLoan, approveLoan, rejectLoan, returnLoan, listCongregations; added types ItemCreate, ItemUpdate, LoanCreate, LoanReturn; added include_deleted param to listItems
+- hooks/useInventory.ts — full inventory hook file: useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory, useItems, useItem, useCreateItem, useUpdateItem, useUploadItemPhoto, useDiscardItem, useDonateItem, useLoans, useLoan, useCreateLoan, useApproveLoan, useRejectLoan, useReturnLoan, useCongregations
+- app/(dashboard)/inventory/page.tsx — item list with search (debounced), category/status/type filters, include_deleted toggle (leadership), status badges (available=green, on_loan=amber, maintenance=red), pagination, empty/loading/error states, New item + Empréstimos buttons (leadership)
+- app/(dashboard)/inventory/new/page.tsx — create item form: name, item_type (radio), category dropdown, description, asset_number, location, quantity, qty_min_alert (consumable only), serial_number, notes; redirects to /inventory/{id}
+- app/(dashboard)/inventory/[id]/page.tsx — item detail: photo/upload (leadership), all fields, status badge, inline edit form (leadership), discard + donate confirm dialogs (leadership), loans section filtered client-side, new loan modal with member/congregation selector
+- app/(dashboard)/inventory/loans/page.tsx — all loans list (leadership): status filter, mobile cards + desktop table, approve/reject/return-modal actions per status, pagination

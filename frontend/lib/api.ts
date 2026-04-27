@@ -221,6 +221,43 @@ export interface Loan {
   returned_at?: string | null;
 }
 
+export interface ItemCreate {
+  item_type: "asset" | "consumable";
+  name: string;
+  description?: string | null;
+  category_id?: string | null;
+  asset_number?: string | null;
+  location: string;
+  quantity?: number;
+  qty_min_alert?: number | null;
+  serial_number?: string | null;
+  notes?: string | null;
+}
+
+export interface ItemUpdate {
+  name?: string;
+  description?: string | null;
+  category_id?: string | null;
+  location?: string;
+  status?: "available" | "on_loan" | "maintenance";
+  quantity?: number;
+  qty_min_alert?: number | null;
+  serial_number?: string | null;
+  notes?: string | null;
+}
+
+export interface LoanCreate {
+  item_id: string;
+  loan_to_type: "church" | "member";
+  loan_to_id: string;
+  expected_return_date?: string | null;
+}
+
+export interface LoanReturn {
+  return_condition: "good" | "damaged" | "lost";
+  return_notes?: string | null;
+}
+
 // ── Internal fetch wrapper ────────────────────────────────────────────────────
 
 async function doRefresh(): Promise<string | null> {
@@ -332,6 +369,10 @@ export async function logoutAll(): Promise<void> {
 
 export async function getMyChurch(): Promise<Church> {
   return apiFetch("/churches/me");
+}
+
+export async function listCongregations(): Promise<{ data: Church[] }> {
+  return apiFetch("/churches/me/congregations");
 }
 
 // ── Members ───────────────────────────────────────────────────────────────────
@@ -511,6 +552,24 @@ export async function listCategories(): Promise<{ data: ItemCategory[] }> {
   return apiFetch("/inventory/categories");
 }
 
+export async function createCategory(data: {
+  name: string;
+  icon?: string | null;
+}): Promise<ItemCategory> {
+  return apiFetch("/inventory/categories", { method: "POST", body: JSON.stringify(data) });
+}
+
+export async function updateCategory(
+  id: string,
+  data: { name: string; icon?: string | null }
+): Promise<ItemCategory> {
+  return apiFetch(`/inventory/categories/${id}`, { method: "PUT", body: JSON.stringify(data) });
+}
+
+export async function deleteCategory(id: string): Promise<void> {
+  return apiFetch(`/inventory/categories/${id}`, { method: "DELETE" });
+}
+
 export async function listItems(params?: {
   page?: number;
   per_page?: number;
@@ -518,6 +577,7 @@ export async function listItems(params?: {
   category_id?: string;
   status?: string;
   item_type?: "asset" | "consumable";
+  include_deleted?: boolean;
 }): Promise<ListResponse<Item>> {
   const qs = new URLSearchParams();
   if (params?.page) qs.set("page", String(params.page));
@@ -526,17 +586,40 @@ export async function listItems(params?: {
   if (params?.category_id) qs.set("category_id", params.category_id);
   if (params?.status) qs.set("status", params.status);
   if (params?.item_type) qs.set("item_type", params.item_type);
+  if (params?.include_deleted) qs.set("include_deleted", "true");
   return apiFetch(`/inventory/items?${qs}`);
+}
+
+export async function createItem(data: ItemCreate): Promise<Item> {
+  return apiFetch("/inventory/items", { method: "POST", body: JSON.stringify(data) });
 }
 
 export async function getItem(id: string): Promise<Item> {
   return apiFetch(`/inventory/items/${id}`);
 }
 
+export async function updateItem(id: string, data: ItemUpdate): Promise<Item> {
+  return apiFetch(`/inventory/items/${id}`, { method: "PUT", body: JSON.stringify(data) });
+}
+
 export async function uploadItemPhoto(id: string, file: File): Promise<{ photo_url: string }> {
   const form = new FormData();
   form.append("photo", file);
   return apiFetch(`/inventory/items/${id}/photo`, { method: "POST", body: form });
+}
+
+export async function discardItem(id: string): Promise<void> {
+  return apiFetch(`/inventory/items/${id}/discard`, {
+    method: "POST",
+    body: JSON.stringify({ deletion_reason: "discarded" }),
+  });
+}
+
+export async function donateItem(id: string): Promise<void> {
+  return apiFetch(`/inventory/items/${id}/donate`, {
+    method: "POST",
+    body: JSON.stringify({ deletion_reason: "donated" }),
+  });
 }
 
 export async function listLoans(params?: {
@@ -549,6 +632,29 @@ export async function listLoans(params?: {
   if (params?.page) qs.set("page", String(params.page));
   if (params?.per_page) qs.set("per_page", String(params.per_page));
   return apiFetch(`/inventory/loans?${qs}`);
+}
+
+export async function createLoan(data: LoanCreate): Promise<Loan> {
+  return apiFetch("/inventory/loans", { method: "POST", body: JSON.stringify(data) });
+}
+
+export async function getLoan(id: string): Promise<Loan> {
+  return apiFetch(`/inventory/loans/${id}`);
+}
+
+export async function approveLoan(id: string): Promise<Loan> {
+  return apiFetch(`/inventory/loans/${id}/approve`, { method: "POST" });
+}
+
+export async function rejectLoan(id: string): Promise<Loan> {
+  return apiFetch(`/inventory/loans/${id}/reject`, { method: "POST" });
+}
+
+export async function returnLoan(id: string, data: LoanReturn): Promise<Loan> {
+  return apiFetch(`/inventory/loans/${id}/return`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
 }
 
 // ── Roles & Instruments ────────────────────────────────────────────────────────
