@@ -316,48 +316,7 @@ of this CLAUDE.md with every endpoint or feature completed.
 Keep it as a flat list. Do not describe — just list.
 
 ## implemented
-- Next.js 16 + React 19 + Tailwind v4 + TypeScript scaffold
-- lib/auth.ts — access token in memory, refresh token via HttpOnly cookie
-- lib/api.ts — typed fetch wrapper with 401→refresh→retry, all openapi.yaml endpoints
-- app/(auth)/login/page.tsx — login form (React Hook Form + Zod), redirects to /members
-- components/ui/button.tsx, input.tsx, label.tsx — shadcn/ui primitives
-- app/layout.tsx, app/page.tsx — root layout and redirect
-- .env.example, .gitignore
-- app/providers.tsx — QueryClientProvider (TanStack Query v5) + Sonner Toaster
-- components/ui/badge.tsx — badge with variants: default, secondary, destructive, outline, success, warning, muted
-- components/ui/skeleton.tsx — animate-pulse skeleton
-- components/ui/dialog.tsx — Radix Dialog (no tailwindcss-animate dependency)
-- components/ui/sonner.tsx — Sonner toast wrapper (position: bottom-center)
-- components/features/DashboardNav.tsx — bottom nav (mobile) + sidebar (desktop) with active state
-- app/(dashboard)/layout.tsx — dashboard shell
-- hooks/useDebounce.ts — debounce hook
-- hooks/useMembers.ts — useMembers, useMember, useRoles, useCreateMember, useUpdateMember, useDeactivateMember, useAssignRole, useRemoveRole
-- components/features/members/MemberCard.tsx — list card with avatar initials, roles, active badge
-- components/features/members/MemberCardSkeleton.tsx — loading skeleton for MemberCard
-- components/features/members/RoleBadge.tsx — colored badge per base_profile
-- components/features/members/DeactivateDialog.tsx — confirm dialog (destructive)
-- app/(dashboard)/members/page.tsx — list with search (debounced), role filter, pagination, empty/loading/error states
-- app/(dashboard)/members/[id]/page.tsx — detail: info, roles (assign/remove), instruments, deactivate with confirm
-- app/(dashboard)/members/new/page.tsx — create form (name, email, phone, birth_date)
-- lib/api.ts — added assignRole, removeRole functions
-- lib/api.ts — register() function (POST /auth/register, same raw-fetch pattern as login)
-- app/(auth)/register/page.tsx — registration form (church name, pastor name, email, password, confirm password); 409 → field error on email; 422 → field-level errors; on success stores session and redirects to /dashboard
-- app/(auth)/login/page.tsx — added "Não tem uma conta? Cadastre sua igreja" link to /register
-- app/(dashboard)/members/new/page.tsx — added role selector (collapsed behind "+ Adicionar funções" toggle, checkbox list with role name + base_profile badge, role_ids sent in createMember call); redirect to /members/{id} on success
-- app/(dashboard)/members/[id]/page.tsx — added inline edit form for name/phone/birth_date (Editar button, RHF+Zod, useUpdateMember)
-- app/(dashboard)/members/me/page.tsx — own profile: view/edit name/phone/birth_date, roles (read-only), instruments (add/remove from catalog)
-- lib/api.ts — added getMyInstruments, addMyInstrument, removeMyInstrument, createRole, updateRole, deleteRole, createInstrument, deleteInstrument, MemberInstrumentAdd type
-- hooks/useMembers.ts — added useMe, useUpdateMe, useMyInstruments, useAddInstrument, useRemoveInstrument, useInstruments; added meKeys and instrumentKeys
-- app/(dashboard)/members/me/page.tsx — instruments section: add/remove from catalog; first instrument auto-set is_primary: true
-- components/features/DashboardNav.tsx — added "Perfil" link to /members/me (bottom nav 5th item on mobile; pinned to sidebar bottom on desktop); fixed active-state logic so Membros doesn't highlight on /members/me
-- lib/api.ts — added getMemberInstruments, addMemberInstrument, removeMemberInstrument (GET/POST/DELETE /members/{id}/instruments)
-- hooks/useMembers.ts — added memberInstrumentKeys, useMemberInstruments, useAddMemberInstrument, useRemoveMemberInstrument
-- app/(dashboard)/members/[id]/page.tsx — instruments section now fully interactive: fetches via useMemberInstruments, shows remove button (leadership+ only), add dropdown (leadership+ only), 409 INSTRUMENT_ALREADY_ADDED shown as inline error
-- lib/api.ts — added createCategory, updateCategory, deleteCategory, createItem, updateItem, discardItem, donateItem, createLoan, getLoan, approveLoan, rejectLoan, returnLoan, listCongregations; added types ItemCreate, ItemUpdate, LoanCreate, LoanReturn; added include_deleted param to listItems
-- hooks/useInventory.ts — full inventory hook file: useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory, useItems, useItem, useCreateItem, useUpdateItem, useUploadItemPhoto, useDiscardItem, useDonateItem, useLoans, useLoan, useCreateLoan, useApproveLoan, useRejectLoan, useReturnLoan, useCongregations
-- app/(dashboard)/inventory/page.tsx — item list with search (debounced), category/status/type filters, include_deleted toggle (leadership), status badges (available=green, on_loan=amber, maintenance=red), pagination, empty/loading/error states, New item + Empréstimos buttons (leadership)
-- app/(dashboard)/inventory/new/page.tsx — create item form: name, item_type (radio), category dropdown, description, asset_number, location, quantity, qty_min_alert (consumable only), serial_number, notes; redirects to /inventory/{id}
-- app/(dashboard)/inventory/[id]/page.tsx — item detail: photo/upload (leadership), all fields, status badge, inline edit form (leadership), discard + donate confirm dialogs (leadership), loans section filtered client-side, new loan modal with member/congregation selector
-- app/(dashboard)/inventory/loans/page.tsx — all loans list (leadership): status filter, mobile cards + desktop table, approve/reject/return-modal actions per status, pagination
-- app/(dashboard)/inventory/new/page.tsx — inline category creation: "+ Nova categoria" sentinel option opens a Dialog with RHF+Zod mini-form (name required, icon optional); on success invalidates categories list and auto-selects new category; main form state preserved
-- app/(dashboard)/inventory/loans/page.tsx — fix: added isLeadership role gate (leadership || pastor) to LoanActions and LoanCard; status=active already correctly showed "Ativo" badge + "Registrar devolução" button with no approve/reject
+
+See IMPLEMENTED.md — read it only when you need to check if a specific
+feature exists or find which file handles a page or API call.
+Do not read it unless necessary for your current task.

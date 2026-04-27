@@ -349,62 +349,6 @@ Keep it as a flat list. Do not describe — just list.
 
 ## implemented
 
-- Hexagonal scaffold (ports & adapters folder structure per ARCHITECTURE.md §1)
-- `POST /api/v1/auth/login`
-- `POST /api/v1/auth/refresh`
-- `POST /api/v1/auth/logout`
-- `POST /api/v1/auth/logout-all`
-- JWT RS256 middleware (access token 15m + refresh token 30d HttpOnly cookie)
-- JWT middleware injects AuthContext; RequireProfile enforces role hierarchy
-- postgres AuthRepo (multi-church support via member_church_memberships)
-- sqlc.yaml + queries/auth.sql
-- refresh_tokens table (appended to 0001_initial_schema.up.sql)
-- `GET /api/v1/members`
-- `POST /api/v1/members`
-- `POST /api/v1/members/import`
-- `GET /api/v1/members/me`
-- `PUT /api/v1/members/me`
-- `GET /api/v1/members/me/instruments`
-- `POST /api/v1/members/me/instruments`
-- `DELETE /api/v1/members/me/instruments/{instrument_id}`
-- `GET /api/v1/members/{id}`
-- `PUT /api/v1/members/{id}`
-- `DELETE /api/v1/members/{id}`
-- `GET /api/v1/members/{id}/roles`
-- `POST /api/v1/members/{id}/roles`
-- `DELETE /api/v1/members/{id}/roles/{role_id}`
-- `GET /api/v1/roles`
-- `POST /api/v1/roles`
-- `PUT /api/v1/roles/{id}`
-- `DELETE /api/v1/roles/{id}`
-- `GET /api/v1/instruments`
-- `POST /api/v1/instruments`
-- `DELETE /api/v1/instruments/{id}`
-- postgres MemberRepo (implements MemberRepository + RoleRepository + InstrumentRepository)
-- services/member_service.go + queries/members.sql
-- `POST /api/v1/auth/register` (church self-service registration — public, no auth)
-- System roles seed corrected: removed generic "Leadership" role; canonical set is Pastor / Worship Leader / Asset Manager / Musician / Member
-- `GET /api/v1/members/{id}/instruments`
-- `POST /api/v1/members/{id}/instruments`
-- `DELETE /api/v1/members/{id}/instruments/{instrument_id}`
-- MemberRepository instrument methods now accept churchID for multi-tenant isolation and auto-primary assignment on first instrument
-- `GET /api/v1/inventory/categories`
-- `POST /api/v1/inventory/categories`
-- `PUT /api/v1/inventory/categories/{id}`
-- `DELETE /api/v1/inventory/categories/{id}`
-- `GET /api/v1/inventory/items` (with search, category_id, status, item_type, include_deleted filters)
-- `POST /api/v1/inventory/items` (asset_number auto-generated as PREFIX-001 if omitted)
-- `GET /api/v1/inventory/items/{id}`
-- `PUT /api/v1/inventory/items/{id}`
-- `POST /api/v1/inventory/items/{id}/photo` (multipart; R2 deferred — stores placeholder URL)
-- `POST /api/v1/inventory/items/{id}/discard`
-- `POST /api/v1/inventory/items/{id}/donate`
-- `GET /api/v1/inventory/loans`
-- `POST /api/v1/inventory/loans`
-- `GET /api/v1/inventory/loans/{id}`
-- `POST /api/v1/inventory/loans/{id}/approve`
-- `POST /api/v1/inventory/loans/{id}/reject`
-- `POST /api/v1/inventory/loans/{id}/return`
-- InventoryRepo (implements InventoryRepository — categories, items, loans with transactional state transitions)
-- services/inventory_service.go (asset number auto-gen, item availability validation, loan target validation)
-- Auto-approval on `POST /api/v1/inventory/loans`: pastor/leadership base_profile → status=active + item on_loan in same transaction; others → status=pending
+See IMPLEMENTED.md — read it only when you need to check if a specific
+feature exists or find which file handles an endpoint.
+Do not read it unless necessary for your current task.
