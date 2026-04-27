@@ -637,8 +637,20 @@ sql:
 ```
 You are building the Go backend for Igreja Organizada.
 - Read /contracts/ARCHITECTURE.md fully before writing any code
-- Read /contracts/openapi.yaml for all endpoint contracts
-- Read /backend/db/migrations/001_initial_schema.sql for the database schema
+- Read /backend/CLAUDE.md for project-specific conventions and implemented features
+- Read /backend/IMPLEMENTED.md only when you need to check if a feature exists
+  or find which file handles a specific endpoint
+- Read ONLY the relevant domain file from /contracts/openapi/ for your current task:
+  Auth task       → /contracts/openapi/auth.yaml
+  Members task    → /contracts/openapi/members.yaml
+  Roles task      → /contracts/openapi/roles.yaml
+  Instruments     → /contracts/openapi/instruments.yaml
+  Agenda task     → /contracts/openapi/agenda.yaml
+  Worship task    → /contracts/openapi/worship.yaml
+  Inventory task  → /contracts/openapi/inventory.yaml
+  Preaching task  → /contracts/openapi/preaching.yaml
+  Full picture    → /contracts/openapi/index.yaml
+- Never read /contracts/openapi.yaml (monolithic) — use the split files above
 - Architecture: hexagonal (ports & adapters)
 - Router: chi
 - Queries: sqlc (never write raw db calls outside adapters/postgres/)
@@ -652,12 +664,25 @@ You are building the Go backend for Igreja Organizada.
 ```
 You are building the Next.js frontend for Igreja Organizada.
 - Read /contracts/ARCHITECTURE.md fully before writing any code
-- Read /contracts/openapi.yaml for all API types and endpoints
+- Read /frontend/CLAUDE.md for project-specific conventions and implemented features
+- Read /frontend/IMPLEMENTED.md only when you need to check if a page or
+  API function already exists
+- Read ONLY the relevant domain file from /contracts/openapi/ for your current task:
+  Auth task       → /contracts/openapi/auth.yaml
+  Members task    → /contracts/openapi/members.yaml
+  Roles task      → /contracts/openapi/roles.yaml
+  Instruments     → /contracts/openapi/instruments.yaml
+  Agenda task     → /contracts/openapi/agenda.yaml
+  Worship task    → /contracts/openapi/worship.yaml
+  Inventory task  → /contracts/openapi/inventory.yaml
+  Preaching task  → /contracts/openapi/preaching.yaml
+  Full picture    → /contracts/openapi/index.yaml
+- Never read /contracts/openapi.yaml (monolithic) — use the split files above
 - Framework: Next.js 14 App Router with TypeScript
 - Styling: Tailwind CSS only — no inline styles, no CSS modules
 - Components: shadcn/ui for primitives
 - Data fetching: TanStack Query for all API calls
 - Auth: access token in memory, refresh token handled by HttpOnly cookie automatically
-- Never call an endpoint not listed in ARCHITECTURE.md section 5
-- All API calls go through /frontend/lib/api.ts — never fetch() directly in components
+- All API calls go through /frontend/lib/api/ — never fetch() directly in components
+- Do not create endpoints not listed in ARCHITECTURE.md section 5
 ```
