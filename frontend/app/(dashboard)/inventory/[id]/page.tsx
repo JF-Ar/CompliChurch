@@ -65,6 +65,12 @@ const STATUS_VARIANTS: Record<string, "success" | "warning" | "destructive"> = {
   maintenance: "destructive",
 };
 
+function getItemBadge(item: { status: string; deletion_reason?: "donated" | "discarded" | null }) {
+  if (item.deletion_reason === "donated") return { label: "Doado", variant: "muted" as const };
+  if (item.deletion_reason === "discarded") return { label: "Descartado", variant: "destructive" as const };
+  return { label: STATUS_LABELS[item.status] ?? item.status, variant: STATUS_VARIANTS[item.status] ?? "muted" as const };
+}
+
 const LOAN_STATUS_LABELS: Record<string, string> = {
   pending: "Pendente",
   active: "Ativo",
@@ -309,7 +315,7 @@ export default function InventoryItemPage() {
       <div className="flex flex-col gap-2">
         <div className="flex items-start justify-between gap-2">
           <h1 className="text-xl font-semibold">{item.name}</h1>
-          <Badge variant={STATUS_VARIANTS[item.status]}>{STATUS_LABELS[item.status]}</Badge>
+          <Badge variant={getItemBadge(item).variant}>{getItemBadge(item).label}</Badge>
         </div>
         <div className="flex flex-wrap gap-1.5">
           {item.asset_number && (

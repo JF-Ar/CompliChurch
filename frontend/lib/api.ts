@@ -200,6 +200,8 @@ export interface Item {
   qty_min_alert?: number | null;
   serial_number?: string | null;
   notes?: string | null;
+  deleted_at?: string | null;
+  deletion_reason?: "donated" | "discarded" | null;
   created_at: string;
   updated_at: string;
 }

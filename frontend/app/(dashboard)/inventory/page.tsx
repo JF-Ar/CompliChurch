@@ -22,6 +22,12 @@ const STATUS_VARIANTS: Record<string, "success" | "warning" | "destructive"> = {
   maintenance: "destructive",
 };
 
+function getItemBadge(item: { status: string; deletion_reason?: "donated" | "discarded" | null }) {
+  if (item.deletion_reason === "donated") return { label: "Doado", variant: "muted" as const };
+  if (item.deletion_reason === "discarded") return { label: "Descartado", variant: "destructive" as const };
+  return { label: STATUS_LABELS[item.status] ?? item.status, variant: STATUS_VARIANTS[item.status] ?? "muted" as const };
+}
+
 export default function InventoryPage() {
   const [search, setSearch] = useState("");
   const [categoryId, setCategoryId] = useState("");
@@ -208,8 +214,8 @@ export default function InventoryPage() {
                   )}
                 </div>
                 <div className="flex flex-wrap gap-1.5">
-                  <Badge variant={STATUS_VARIANTS[item.status]}>
-                    {STATUS_LABELS[item.status]}
+                  <Badge variant={getItemBadge(item).variant}>
+                    {getItemBadge(item).label}
                   </Badge>
                   {item.category && (
                     <Badge variant="outline">{item.category.name}</Badge>
