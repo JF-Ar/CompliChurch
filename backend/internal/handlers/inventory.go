@@ -643,7 +643,7 @@ func (h *InventoryHandler) CreateLoan(w http.ResponseWriter, r *http.Request) {
 		input.ExpectedReturnDate = &t
 	}
 
-	loan, err := h.svc.CreateLoan(r.Context(), auth.ChurchID, auth.MemberID, input)
+	loan, err := h.svc.CreateLoan(r.Context(), auth.ChurchID, auth.MemberID, auth.BaseProfile, input)
 	if err != nil {
 		if errors.Is(err, services.ErrItemNotFound) {
 			writeError(w, http.StatusNotFound, "ITEM_NOT_FOUND", "Item not found", "item_id")

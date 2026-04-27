@@ -335,6 +335,7 @@ type InventoryRepository interface {
 	// Loans
 	ListLoans(ctx context.Context, churchID uuid.UUID, filter ListLoansFilter) ([]Loan, int, error)
 	CreateLoan(ctx context.Context, churchID uuid.UUID, requestedBy uuid.UUID, input LoanCreateInput) (*Loan, error)
+	CreateLoanActive(ctx context.Context, churchID, requestedBy, approvedBy uuid.UUID, input LoanCreateInput) (*Loan, error)
 	GetLoanByID(ctx context.Context, id, churchID uuid.UUID) (*Loan, error)
 	ApproveLoan(ctx context.Context, id, approvedBy, churchID uuid.UUID) (*Loan, error)
 	RejectLoan(ctx context.Context, id, churchID uuid.UUID) (*Loan, error)

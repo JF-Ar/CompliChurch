@@ -172,7 +172,7 @@ func (s *InventoryService) ListLoans(ctx context.Context, churchID uuid.UUID, fi
 	return s.repo.ListLoans(ctx, churchID, filter)
 }
 
-func (s *InventoryService) CreateLoan(ctx context.Context, churchID, requestedBy uuid.UUID, input ports.LoanCreateInput) (*ports.Loan, error) {
+func (s *InventoryService) CreateLoan(ctx context.Context, churchID, requestedBy uuid.UUID, baseProfile string, input ports.LoanCreateInput) (*ports.Loan, error) {
 	// Validate item exists and is available.
 	item, err := s.repo.GetItemByID(ctx, input.ItemID, churchID)
 	if err != nil {
@@ -203,6 +203,11 @@ func (s *InventoryService) CreateLoan(ctx context.Context, churchID, requestedBy
 		if !ok {
 			return nil, ErrLoanTargetNotFound
 		}
+	}
+
+	// Pastor and leadership get immediate approval — no pending step needed.
+	if baseProfile == "pastor" || baseProfile == "leadership" {
+		return s.repo.CreateLoanActive(ctx, churchID, requestedBy, requestedBy, input)
 	}
 
 	return s.repo.CreateLoan(ctx, churchID, requestedBy, input)

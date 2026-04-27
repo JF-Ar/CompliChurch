@@ -392,3 +392,4 @@ Keep it as a flat list. Do not describe — just list.
 - `POST /api/v1/inventory/loans/{id}/return`
 - InventoryRepo (implements InventoryRepository — categories, items, loans with transactional state transitions)
 - services/inventory_service.go (asset number auto-gen, item availability validation, loan target validation)
+- Auto-approval on `POST /api/v1/inventory/loans`: pastor/leadership base_profile → status=active + item on_loan in same transaction; others → status=pending

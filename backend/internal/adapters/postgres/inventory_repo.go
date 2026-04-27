@@ -413,6 +413,44 @@ func (r *InventoryRepo) CreateLoan(ctx context.Context, churchID uuid.UUID, requ
 	return r.GetLoanByID(ctx, id, churchID)
 }
 
+func (r *InventoryRepo) CreateLoanActive(ctx context.Context, churchID, requestedBy, approvedBy uuid.UUID, input ports.LoanCreateInput) (*ports.Loan, error) {
+	var expectedReturnDate pgtype.Date
+	if input.ExpectedReturnDate != nil {
+		expectedReturnDate = pgtype.Date{Time: *input.ExpectedReturnDate, Valid: true}
+	}
+
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	var id uuid.UUID
+	err = tx.QueryRow(ctx,
+		`INSERT INTO loans (item_id, requested_by, approved_by, loan_to_type, loan_to_id, expected_return_date, status)
+		 VALUES ($1, $2, $3, $4, $5, $6, 'active')
+		 RETURNING id`,
+		input.ItemID, requestedBy, approvedBy, input.LoanToType, input.LoanToID, expectedReturnDate,
+	).Scan(&id)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = tx.Exec(ctx,
+		`UPDATE items SET status = 'on_loan', updated_at = NOW() WHERE id = $1`,
+		input.ItemID,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+
+	return r.GetLoanByID(ctx, id, churchID)
+}
+
 func (r *InventoryRepo) GetLoanByID(ctx context.Context, id, churchID uuid.UUID) (*ports.Loan, error) {
 	q := fmt.Sprintf(`
 		SELECT %s
