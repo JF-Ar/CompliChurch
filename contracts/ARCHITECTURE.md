@@ -22,6 +22,7 @@ Version: 1.0.0 · Stack locked for MVP
 │   │   │   ├── schedule/
 │   │   │   ├── event/
 │   │   │   ├── inventory/
+│   │   │   ├── preaching/
 │   │   │   └── notification/
 │   │   ├── ports/              # Interfaces (what the domain needs from outside)
 │   │   │   ├── repository.go   # DB port interfaces
@@ -41,6 +42,7 @@ Version: 1.0.0 · Stack locked for MVP
 │   │   │   ├── schedules.go
 │   │   │   ├── events.go
 │   │   │   ├── inventory.go
+│   │   │   ├── preaching.go
 │   │   │   └── middleware.go
 │   │   └── services/           # Application services (orchestrate domain + ports)
 │   │       ├── auth_service.go
@@ -354,6 +356,19 @@ type AuthContext struct {
 |---|---|---|---|
 | GET | `/notifications` | `*` | List own notifications (last 30 days) |
 
+### Preaching Schedule
+| Method | Path | Access | Description |
+|---|---|---|---|
+| GET | `/preaching-schedules` | `*` | List schedules (filter by church_id and month) |
+| POST | `/preaching-schedules` | `P` | Create schedule (draft) for a church + month |
+| GET | `/preaching-schedules/:id` | `*` | Get schedule with all entries |
+| PUT | `/preaching-schedules/:id` | `P` | Update schedule metadata |
+| DELETE | `/preaching-schedules/:id` | `P` | Cancel schedule |
+| POST | `/preaching-schedules/:id/publish` | `P` | Publish → email to all assigned members |
+| GET | `/preaching-schedules/:id/entries` | `*` | List entries |
+| POST | `/preaching-schedules/:id/entries` | `P` | Upsert entry for a Sunday |
+| DELETE | `/preaching-schedules/:id/entries/:entry_id` | `P` | Remove entry |
+
 ---
 
 ## 6. Schedule Suggestion Algorithm
@@ -394,7 +409,48 @@ Response shape:
 
 ---
 
-## 7. File Upload (Photos)
+## 6b. Preaching Schedule
+
+**Model:** one `preaching_schedules` row per church per month. Each schedule has N `preaching_entries` rows — one per Sunday.
+
+**Tables required (add to schema migration):**
+
+```sql
+CREATE TABLE preaching_schedules (
+    id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    church_id    UUID        NOT NULL REFERENCES churches(id) ON DELETE CASCADE,
+    month        VARCHAR(7)  NOT NULL,  -- YYYY-MM
+    status       VARCHAR(20) NOT NULL DEFAULT 'draft'
+                     CHECK (status IN ('draft', 'published', 'cancelled')),
+    created_by   UUID        NOT NULL REFERENCES members(id) ON DELETE RESTRICT,
+    published_at TIMESTAMPTZ,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_preaching_schedule UNIQUE (church_id, month)
+);
+
+CREATE TABLE preaching_entries (
+    id                   UUID  PRIMARY KEY DEFAULT gen_random_uuid(),
+    schedule_id          UUID  NOT NULL REFERENCES preaching_schedules(id) ON DELETE CASCADE,
+    sunday_date          DATE  NOT NULL,
+    direction_member_id  UUID  REFERENCES members(id) ON DELETE SET NULL,
+    message_member_id    UUID  REFERENCES members(id) ON DELETE SET NULL,
+    notes                TEXT,
+    CONSTRAINT uq_preaching_entry UNIQUE (schedule_id, sunday_date)
+);
+```
+
+**Business rules:**
+- One schedule per church per month (`UNIQUE church_id + month`)
+- One entry per Sunday per schedule (`UNIQUE schedule_id + sunday_date`)
+- `direction_member_id` and `message_member_id` can be the same person
+- Both fields are nullable — an entry can be saved with only one role filled
+- Members from the matrix can be assigned to a congregation's schedule and vice-versa
+- On publish: email sent to every unique member_id appearing in direction or message across all entries
+- Schedule is visible to all authenticated members of the church hierarchy (matrix + congregations)
+- Only pastor can create, edit and publish
+
+---
 
 All photo uploads go through the backend — the frontend never talks to R2 directly.
 
@@ -434,6 +490,7 @@ Emails are sent asynchronously: the handler returns 200 immediately, and a gorou
 | `loan_rejected` | Loan rejected | Requesting member |
 | `loan_overdue` | Expected return date passed | Asset manager + borrower |
 | `qty_min_alert` | Consumable below min qty | Asset manager |
+| `preaching_schedule_published` | Preaching schedule published | All members assigned as direction or message |
 
 ---
 

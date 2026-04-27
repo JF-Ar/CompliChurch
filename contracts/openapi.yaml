@@ -931,26 +931,103 @@ components:
           type: string
           nullable: true
 
-    # ── AUTH ──────────────────────────────────────────────────────────────────
+    # ── PREACHING SCHEDULE ────────────────────────────────────────────────────
 
-    RegisterRequest:
+    PreachingSchedule:
       type: object
-      required: [church_name, pastor_name, email, password]
       properties:
-        church_name:
+        id:
+          $ref: "#/components/schemas/UUID"
+        church_id:
+          $ref: "#/components/schemas/UUID"
+        month:
           type: string
-          example: "Primeira Igreja Batista"
-        pastor_name:
+          example: "2025-05"
+          description: "YYYY-MM — one schedule per month per church"
+        status:
           type: string
-          example: "João Silva"
-        email:
+          enum: [draft, published, cancelled]
+        created_by:
+          $ref: "#/components/schemas/MemberSummary"
+        published_at:
+          $ref: "#/components/schemas/Timestamp"
+          nullable: true
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/PreachingEntry"
+        created_at:
+          $ref: "#/components/schemas/Timestamp"
+        updated_at:
+          $ref: "#/components/schemas/Timestamp"
+
+    PreachingScheduleCreate:
+      type: object
+      required: [church_id, month]
+      properties:
+        church_id:
+          $ref: "#/components/schemas/UUID"
+          description: "Matrix or congregation church ID"
+        month:
           type: string
-          format: email
-          example: "pastor@example.com"
-        password:
+          example: "2025-05"
+          description: "YYYY-MM format"
+
+    PreachingScheduleUpdate:
+      type: object
+      properties:
+        status:
           type: string
-          format: password
-          minLength: 8
+          enum: [draft, cancelled]
+
+    PreachingEntry:
+      type: object
+      description: "One row per Sunday in the schedule"
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        schedule_id:
+          $ref: "#/components/schemas/UUID"
+        sunday_date:
+          $ref: "#/components/schemas/Date"
+        direction_member:
+          $ref: "#/components/schemas/MemberSummary"
+          nullable: true
+          description: "Who leads the service (liturgy, announcements)"
+        message_member:
+          $ref: "#/components/schemas/MemberSummary"
+          nullable: true
+          description: "Who preaches"
+        same_person:
+          type: boolean
+          description: "True when direction_member_id == message_member_id"
+        notes:
+          type: string
+          nullable: true
+          example: "Lord's Supper"
+          description: "Special notes for this Sunday e.g. Ceia, DIP"
+
+    PreachingEntryUpsert:
+      type: object
+      required: [sunday_date]
+      properties:
+        sunday_date:
+          $ref: "#/components/schemas/Date"
+          description: "Must be a Sunday within the schedule month"
+        direction_member_id:
+          $ref: "#/components/schemas/UUID"
+          nullable: true
+          description: "Any active member from this church or its matrix"
+        message_member_id:
+          $ref: "#/components/schemas/UUID"
+          nullable: true
+          description: "Any active member from this church or its matrix"
+        notes:
+          type: string
+          nullable: true
+          example: "Lord's Supper"
+
+    # ── AUTH ──────────────────────────────────────────────────────────────────
 
     LoginRequest:
       type: object
@@ -1049,36 +1126,6 @@ components:
 paths:
 
   # ── AUTH ────────────────────────────────────────────────────────────────────
-
-  /auth/register:
-    post:
-      tags: [Auth]
-      summary: Register a new church (self-service)
-      security: []
-      description: |
-        Creates a new church, a pastor member, and issues tokens in one atomic transaction.
-        The pastor account is immediately active and can log in.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RegisterRequest"
-      responses:
-        "201":
-          description: Church and pastor created. Refresh token set as HttpOnly cookie.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/LoginResponse"
-        "409":
-          description: Email already in use.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "422":
-          $ref: "#/components/responses/UnprocessableEntity"
 
   /auth/login:
     post:
@@ -1498,81 +1545,6 @@ paths:
       responses:
         "204":
           description: Role removed
-        "404":
-          $ref: "#/components/responses/NotFound"
-
-  /members/{id}/instruments:
-    get:
-      tags: [Members]
-      summary: List instruments assigned to a member
-      description: "Any authenticated member. Returns instruments for the given member within the requester's church."
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            $ref: "#/components/schemas/UUID"
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/MemberInstrument"
-        "404":
-          $ref: "#/components/responses/NotFound"
-    post:
-      tags: [Members]
-      summary: Add instrument to a member's profile
-      description: "Required role: leadership"
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            $ref: "#/components/schemas/UUID"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/MemberInstrumentAdd"
-      responses:
-        "201":
-          description: Added
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/MemberInstrument"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-
-  /members/{id}/instruments/{instrument_id}:
-    delete:
-      tags: [Members]
-      summary: Remove instrument from a member's profile
-      description: "Required role: leadership"
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            $ref: "#/components/schemas/UUID"
-        - name: instrument_id
-          in: path
-          required: true
-          schema:
-            $ref: "#/components/schemas/UUID"
-      responses:
-        "204":
-          description: Removed
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -2763,6 +2735,200 @@ paths:
                   meta:
                     $ref: "#/components/schemas/PaginationMeta"
 
+  # ── PREACHING SCHEDULE ──────────────────────────────────────────────────────
+
+  /preaching-schedules:
+    get:
+      tags: [Preaching]
+      summary: List preaching schedules
+      description: "Visible to all authenticated members."
+      parameters:
+        - name: church_id
+          in: query
+          schema:
+            $ref: "#/components/schemas/UUID"
+          description: "Filter by church (matrix or congregation). Defaults to primary church."
+        - name: month
+          in: query
+          schema:
+            type: string
+            example: "2025-05"
+          description: "YYYY-MM format. Defaults to current month."
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PreachingSchedule"
+    post:
+      tags: [Preaching]
+      summary: Create preaching schedule (draft)
+      description: "Required role: pastor"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PreachingScheduleCreate"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PreachingSchedule"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /preaching-schedules/{id}:
+    get:
+      tags: [Preaching]
+      summary: Get preaching schedule with all entries
+      description: "Visible to all authenticated members."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PreachingSchedule"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Preaching]
+      summary: Update schedule metadata
+      description: "Required role: pastor"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PreachingScheduleUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PreachingSchedule"
+    delete:
+      tags: [Preaching]
+      summary: Cancel preaching schedule
+      description: "Required role: pastor"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "204":
+          description: Cancelled
+
+  /preaching-schedules/{id}/publish:
+    post:
+      tags: [Preaching]
+      summary: Publish preaching schedule
+      description: "Required role: pastor. Sends email to all members assigned as direction or message."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "200":
+          description: Published
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PreachingSchedule"
+
+  /preaching-schedules/{id}/entries:
+    get:
+      tags: [Preaching]
+      summary: List entries in schedule
+      description: "Visible to all authenticated members."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PreachingEntry"
+    post:
+      tags: [Preaching]
+      summary: Add or update entry for a Sunday
+      description: "Required role: pastor. If an entry for this sunday_date already exists, it is replaced."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PreachingEntryUpsert"
+      responses:
+        "200":
+          description: Entry saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PreachingEntry"
+
+  /preaching-schedules/{id}/entries/{entry_id}:
+    delete:
+      tags: [Preaching]
+      summary: Remove entry from schedule
+      description: "Required role: pastor"
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+        - name: entry_id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        "204":
+          description: Removed
+
 # =============================================================================
 # TAGS (display order in docs)
 # =============================================================================
@@ -2783,5 +2949,7 @@ tags:
     description: Worship schedule, availability and suggestions
   - name: Inventory
     description: Asset and consumable tracking, loans
+  - name: Preaching
+    description: Monthly preaching schedule (direction + message per Sunday per church)
   - name: Notifications
     description: Notification log
