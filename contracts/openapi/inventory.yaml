@@ -1,5 +1,16 @@
 paths:
 
+  # Expected .xlsx columns (row 1 = header, case-insensitive):
+  # REQUIRED: name | item_type | location
+  # OPTIONAL: category | description | asset_number |
+  #           quantity | qty_min_alert | serial_number | notes
+  #
+  # item_type accepted values: asset, consumable, bem, consumível
+  # category: matched by name (case-insensitive, trimmed)
+  #           created automatically if not found
+  # asset_number: auto-generated if blank and item_type = asset
+  # quantity: defaults to 1 if blank
+
   /inventory/categories:
     get:
       tags: [Inventory]
@@ -143,6 +154,31 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Item"
+
+  /inventory/items/import:
+    post:
+      tags: [Inventory]
+      summary: Bulk import items from Excel file (.xlsx)
+      description: "Required role: leadership. Accepts multipart/form-data with one .xlsx file. Returns a summary of created items, skipped rows and row-level errors. Never returns 4xx for row-level failures."
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: ".xlsx file only"
+      responses:
+        "200":
+          description: Import complete
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItemImportResult"
 
   /inventory/items/{id}:
     get:
@@ -621,6 +657,27 @@ components:
         expected_return_date:
           $ref: "#/components/schemas/Date"
           nullable: true
+
+    ItemImportResult:
+      type: object
+      properties:
+        created:
+          type: integer
+          example: 14
+        skipped:
+          type: integer
+          example: 2
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              row:
+                type: integer
+                description: "1-based row number in the spreadsheet (row 1 = header)"
+              reason:
+                type: string
+                example: "item_type must be asset or consumable"
 
     LoanReturn:
       type: object
