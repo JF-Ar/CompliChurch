@@ -557,7 +557,9 @@ func (r *InventoryRepo) ReturnLoan(ctx context.Context, id, churchID uuid.UUID, 
 	}
 
 	itemStatus := "available"
-	if input.ReturnCondition == "damaged" || input.ReturnCondition == "lost" {
+	if input.ReturnCondition == "damaged" {
+		itemStatus = "damaged"
+	} else if input.ReturnCondition == "lost" {
 		itemStatus = "maintenance"
 	}
 

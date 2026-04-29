@@ -191,7 +191,7 @@ Service: services/inventory_service.go:InventoryService
 
 - POST /inventory/loans/{id}/return → handlers/inventory.go:ReturnLoan _(leadership+)_
   - return_condition: good | damaged | lost
-  - damaged/lost → item.status=maintenance; good → item.status=available
+  - good → item.status=available; damaged → item.status=damaged; lost → item.status=maintenance
 
 Repo: adapters/postgres/inventory_repo.go:InventoryRepo
   - Satisfies: InventoryRepository
@@ -201,7 +201,9 @@ Repo: adapters/postgres/inventory_repo.go:InventoryRepo
 
 ## Database
 
-- Migration file: db/migrations/0001_initial_schema.sql
+- Migration file: db/migrations/0001_initial_schema.up.sql
+- Migration file: db/migrations/0002_item_status_damaged.up.sql
+  - Drops old items_status_check (3 values) and adds new CHECK with 4 values: available, on_loan, maintenance, damaged
   - refresh_tokens table appended to same file (not a separate migration)
 - All PKs: UUID v4 via gen_random_uuid()
 - All timestamps: TIMESTAMPTZ
