@@ -100,7 +100,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [available, on_loan, maintenance]
+            enum: [available, on_loan, maintenance, damaged]
         - name: item_type
           in: query
           schema:
@@ -459,7 +459,12 @@ components:
           example: "Main Hall"
         status:
           type: string
-          enum: [available, on_loan, maintenance]
+          enum: [available, on_loan, maintenance, damaged]
+          description: |
+            available   — ready to use, at church
+            on_loan     — currently borrowed
+            damaged     — returned with damage, awaiting decision, still at church
+            maintenance — sent out for repair, not at church
         quantity:
           type: integer
           example: 1
@@ -535,7 +540,7 @@ components:
           type: string
         status:
           type: string
-          enum: [available, on_loan, maintenance]
+          enum: [available, on_loan, maintenance, damaged]
         quantity:
           type: integer
         qty_min_alert:
@@ -624,6 +629,9 @@ components:
         return_condition:
           type: string
           enum: [good, damaged, lost]
+          description: |
+            damaged — item status set to "damaged" (still at church, awaiting repair decision)
+            lost    — item status set to "maintenance" (treated as out of circulation)
         return_notes:
           type: string
           nullable: true
