@@ -13,12 +13,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 const STATUS_LABELS: Record<string, string> = {
   available: "Disponível",
   on_loan: "Emprestado",
-  maintenance: "Manutenção",
+  damaged: "Com dano",
+  maintenance: "Em manutenção",
 };
 
-const STATUS_VARIANTS: Record<string, "success" | "warning" | "destructive"> = {
+const STATUS_VARIANTS: Record<string, "success" | "warning" | "orange" | "destructive"> = {
   available: "success",
   on_loan: "warning",
+  damaged: "orange",
   maintenance: "destructive",
 };
 
@@ -118,7 +120,8 @@ export default function InventoryPage() {
             <option value="">Todos os status</option>
             <option value="available">Disponível</option>
             <option value="on_loan">Emprestado</option>
-            <option value="maintenance">Manutenção</option>
+            <option value="damaged">Com dano</option>
+            <option value="maintenance">Em manutenção</option>
           </select>
           <select
             aria-label="Filtrar por tipo"

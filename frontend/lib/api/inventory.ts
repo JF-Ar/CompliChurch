@@ -18,7 +18,7 @@ export interface Item {
   asset_number?: string | null;
   photo_url?: string | null;
   location: string;
-  status: "available" | "on_loan" | "maintenance";
+  status: "available" | "on_loan" | "maintenance" | "damaged";
   quantity: number;
   qty_min_alert?: number | null;
   serial_number?: string | null;

@@ -64,7 +64,7 @@ Quick reference for agents. Read this only to locate a specific page or check wh
   - Hook: useItems(params), useCategories, useMe
   - Filters: search (debounced), category, status, item_type
   - include_deleted toggle (leadership+ only)
-  - Status badges: available=green, on_loan=amber, maintenance=red
+  - Status badges: available=green, on_loan=amber, damaged=orange, maintenance=red
   - Donation/Discarded badge shown when item has deletion_reason
   - Pagination; buttons: "+ Novo item" + "Empréstimos" (leadership+)
 
@@ -78,11 +78,15 @@ Quick reference for agents. Read this only to locate a specific page or check wh
 
 - Item detail → app/(dashboard)/inventory/[id]/page.tsx
   - Hooks: useItem, useUpdateItem, useUploadItemPhoto, useDiscardItem, useDonateItem,
-    useLoans, useCreateLoan, useCongregations, useMembers, useMe
+    useLoans, useCreateLoan, useReturnLoan, useCongregations, useMembers, useMe
   - Sections: photo upload (leadership+), all fields, inline edit form (leadership+)
   - Discard + donate: confirm dialogs (leadership+), shows Doado/Descartado badge
   - Loans section: filtered client-side from full loan list
   - New loan modal: member/congregation selector
+  - Return modal: visible to borrower (loan.requested_by.id === currentMember.id) or leadership/pastor;
+    active loans only; fields: return_condition (radio: good/damaged/lost), return_notes (textarea);
+    on success invalidates item + loans queries, shows toast
+  - Returned loans show: condition label, notes, actual_return_date; status badge updated to success/destructive
 
 - Loans list → app/(dashboard)/inventory/loans/page.tsx
   - Hooks: useLoans(params), useApproveLoan, useRejectLoan, useReturnLoan, useMe
@@ -226,7 +230,7 @@ Churches: `useCongregations`
 - button.tsx — cva variants: default, destructive, outline, secondary, ghost, link
 - input.tsx — forwarded ref input
 - label.tsx — forwarded ref label
-- badge.tsx — variants: default, secondary, destructive, outline, success, warning, muted
+- badge.tsx — variants: default, secondary, destructive, outline, success, warning, orange, muted
 - skeleton.tsx — animate-pulse div
 - dialog.tsx — Radix Dialog (Dialog, DialogContent, DialogHeader, DialogTitle,
   DialogDescription, DialogFooter, DialogClose, DialogTrigger)

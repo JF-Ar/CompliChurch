@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import type { Resolver } from "react-hook-form";
@@ -17,7 +18,9 @@ import {
   useDonateItem,
   useLoans,
   useCreateLoan,
+  useReturnLoan,
   useCongregations,
+  itemKeys,
 } from "@/hooks/useInventory";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -56,12 +59,14 @@ function formatTimestamp(ts: string): string {
 const STATUS_LABELS: Record<string, string> = {
   available: "Disponível",
   on_loan: "Emprestado",
-  maintenance: "Manutenção",
+  damaged: "Com dano",
+  maintenance: "Em manutenção",
 };
 
-const STATUS_VARIANTS: Record<string, "success" | "warning" | "destructive"> = {
+const STATUS_VARIANTS: Record<string, "success" | "warning" | "orange" | "destructive"> = {
   available: "success",
   on_loan: "warning",
+  damaged: "orange",
   maintenance: "destructive",
 };
 
@@ -82,9 +87,15 @@ const LOAN_STATUS_LABELS: Record<string, string> = {
 const LOAN_STATUS_VARIANTS: Record<string, "warning" | "success" | "muted" | "destructive"> = {
   pending: "warning",
   active: "success",
-  returned: "muted",
+  returned: "success",
   returned_with_issue: "destructive",
   rejected: "destructive",
+};
+
+const RETURN_CONDITION_LABELS: Record<string, string> = {
+  good: "Bom estado",
+  damaged: "Com dano",
+  lost: "Perdido",
 };
 
 // ── Schemas ───────────────────────────────────────────────────────────────────
@@ -92,7 +103,7 @@ const LOAN_STATUS_VARIANTS: Record<string, "warning" | "success" | "muted" | "de
 const editSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
   location: z.string().min(1, "Localização é obrigatória"),
-  status: z.enum(["available", "on_loan", "maintenance"]),
+  status: z.enum(["available", "on_loan", "maintenance", "damaged"]),
   description: z.string().optional(),
   notes: z.string().optional(),
   qty_min_alert: z.coerce.number().int().min(0).nullable().optional(),
@@ -104,8 +115,14 @@ const loanSchema = z.object({
   expected_return_date: z.string().optional(),
 });
 
+const returnSchema = z.object({
+  return_condition: z.enum(["good", "damaged", "lost"]),
+  return_notes: z.string().optional(),
+});
+
 type EditValues = z.infer<typeof editSchema>;
 type LoanValues = z.infer<typeof loanSchema>;
+type ReturnValues = z.infer<typeof returnSchema>;
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
@@ -118,8 +135,11 @@ export default function InventoryItemPage() {
   const [showDiscardDialog, setShowDiscardDialog] = useState(false);
   const [showDonateDialog, setShowDonateDialog] = useState(false);
   const [showLoanModal, setShowLoanModal] = useState(false);
+  const [showReturnModal, setShowReturnModal] = useState(false);
+  const [activeLoanId, setActiveLoanId] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
   const [loanError, setLoanError] = useState<string | null>(null);
+  const [returnError, setReturnError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: meData } = useMe();
@@ -133,6 +153,8 @@ export default function InventoryItemPage() {
   const { mutateAsync: discardItem, isPending: isDiscarding } = useDiscardItem(id);
   const { mutateAsync: donateItem, isPending: isDonating } = useDonateItem(id);
   const { mutateAsync: createLoan, isPending: isCreatingLoan } = useCreateLoan();
+  const { mutateAsync: doReturnLoan, isPending: isReturning } = useReturnLoan();
+  const queryClient = useQueryClient();
 
   // Fetch all loans and filter for this item client-side
   const { data: loansData } = useLoans({ per_page: 100 });
@@ -224,6 +246,11 @@ export default function InventoryItemPage() {
     defaultValues: { loan_to_type: "member", loan_to_id: "", expected_return_date: "" },
   });
 
+  const returnForm = useForm<ReturnValues>({
+    resolver: zodResolver(returnSchema),
+    defaultValues: { return_condition: "good", return_notes: "" },
+  });
+
   const loanToType = loanForm.watch("loan_to_type");
 
   async function onLoanSubmit(values: LoanValues) {
@@ -241,6 +268,29 @@ export default function InventoryItemPage() {
     } catch (err) {
       const e = err as ApiError;
       setLoanError(e?.error?.message ?? "Erro inesperado. Tente novamente.");
+    }
+  }
+
+  async function onReturnSubmit(values: ReturnValues) {
+    if (!activeLoanId) return;
+    setReturnError(null);
+    try {
+      await doReturnLoan({
+        id: activeLoanId,
+        data: {
+          return_condition: values.return_condition,
+          return_notes: values.return_notes || null,
+        },
+      });
+      toast.success("Devolução registrada com sucesso.");
+      setShowReturnModal(false);
+      setActiveLoanId(null);
+      returnForm.reset({ return_condition: "good", return_notes: "" });
+      queryClient.invalidateQueries({ queryKey: itemKeys.detail(id) });
+      queryClient.invalidateQueries({ queryKey: itemKeys.all });
+    } catch (err) {
+      const e = err as ApiError;
+      setReturnError(e?.error?.message ?? "Erro inesperado. Tente novamente.");
     }
   }
 
@@ -392,7 +442,8 @@ export default function InventoryItemPage() {
             >
               <option value="available">Disponível</option>
               <option value="on_loan">Emprestado</option>
-              <option value="maintenance">Manutenção</option>
+              <option value="damaged">Com dano</option>
+              <option value="maintenance">Em manutenção</option>
             </select>
           </div>
 
@@ -512,24 +563,62 @@ export default function InventoryItemPage() {
           </p>
         ) : (
           <div className="flex flex-col gap-2">
-            {itemLoans.map((loan) => (
-              <div key={loan.id} className="rounded-lg border p-3 flex flex-col gap-1">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-medium">{loan.loan_to_name}</span>
-                  <Badge variant={LOAN_STATUS_VARIANTS[loan.status]}>
-                    {LOAN_STATUS_LABELS[loan.status]}
-                  </Badge>
-                </div>
-                <span className="text-xs text-muted-foreground">
-                  Solicitado por: {loan.requested_by.name}
-                </span>
-                {loan.expected_return_date && (
+            {itemLoans.map((loan) => {
+              const canReturn =
+                loan.status === "active" &&
+                (meData?.id === loan.requested_by.id || isLeadership);
+              const isReturned =
+                loan.status === "returned" || loan.status === "returned_with_issue";
+              return (
+                <div key={loan.id} className="rounded-lg border p-3 flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-medium">{loan.loan_to_name}</span>
+                    <Badge variant={LOAN_STATUS_VARIANTS[loan.status]}>
+                      {LOAN_STATUS_LABELS[loan.status]}
+                    </Badge>
+                  </div>
                   <span className="text-xs text-muted-foreground">
-                    Devolução prevista: {formatDate(loan.expected_return_date)}
+                    Solicitado por: {loan.requested_by.name}
                   </span>
-                )}
-              </div>
-            ))}
+                  {loan.expected_return_date && (
+                    <span className="text-xs text-muted-foreground">
+                      Devolução prevista: {formatDate(loan.expected_return_date)}
+                    </span>
+                  )}
+                  {isReturned && loan.return_condition && (
+                    <span className="text-xs text-muted-foreground">
+                      Condição: {RETURN_CONDITION_LABELS[loan.return_condition] ?? loan.return_condition}
+                    </span>
+                  )}
+                  {isReturned && loan.return_notes && (
+                    <span className="text-xs text-muted-foreground">
+                      Obs: {loan.return_notes}
+                    </span>
+                  )}
+                  {isReturned && loan.actual_return_date && (
+                    <span className="text-xs text-muted-foreground">
+                      Devolvido em: {formatDate(loan.actual_return_date)}
+                    </span>
+                  )}
+                  {canReturn && (
+                    <div className="pt-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setActiveLoanId(loan.id);
+                          returnForm.reset({ return_condition: "good", return_notes: "" });
+                          setReturnError(null);
+                          setShowReturnModal(true);
+                        }}
+                      >
+                        Registrar devolução
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -676,6 +765,75 @@ export default function InventoryItemPage() {
               </DialogClose>
               <Button type="submit" disabled={isCreatingLoan}>
                 {isCreatingLoan ? "Registrando…" : "Registrar empréstimo"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      {/* Return modal */}
+      <Dialog
+        open={showReturnModal}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowReturnModal(false);
+            setActiveLoanId(null);
+            setReturnError(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Registrar devolução</DialogTitle>
+            <DialogDescription>
+              Informe as condições de devolução do item.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={returnForm.handleSubmit(onReturnSubmit)} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <Label>Condição de devolução *</Label>
+              <div className="flex flex-col gap-2">
+                {(["good", "damaged", "lost"] as const).map((value) => (
+                  <label key={value} className="flex items-center gap-2 cursor-pointer min-h-[48px]">
+                    <input
+                      type="radio"
+                      value={value}
+                      {...returnForm.register("return_condition")}
+                      className="h-4 w-4"
+                    />
+                    <span className="text-sm">{RETURN_CONDITION_LABELS[value]}</span>
+                  </label>
+                ))}
+              </div>
+              {returnForm.formState.errors.return_condition && (
+                <p className="text-xs text-destructive">
+                  {returnForm.formState.errors.return_condition.message}
+                </p>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="return-notes">Observações</Label>
+              <textarea
+                id="return-notes"
+                {...returnForm.register("return_notes")}
+                rows={3}
+                placeholder="Observações sobre a devolução"
+                className="rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+
+            {returnError && (
+              <p className="text-sm text-destructive text-center">{returnError}</p>
+            )}
+
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button type="button" variant="outline">
+                  Cancelar
+                </Button>
+              </DialogClose>
+              <Button type="submit" disabled={isReturning}>
+                {isReturning ? "Registrando…" : "Confirmar"}
               </Button>
             </DialogFooter>
           </form>
