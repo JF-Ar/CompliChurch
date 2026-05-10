@@ -128,6 +128,11 @@ export default function InventoryPage() {
             </Button>
           )}
           {isLeadership && (
+            <Button asChild variant="outline" size="sm">
+              <Link href="/inventory/categories">Categorias</Link>
+            </Button>
+          )}
+          {isLeadership && (
             <Button variant="outline" size="sm" onClick={downloadTemplate}>
               Baixar modelo
             </Button>

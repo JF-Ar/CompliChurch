@@ -66,7 +66,7 @@ Quick reference for agents. Read this only to locate a specific page or check wh
   - include_deleted toggle (leadership+ only)
   - Status badges: available=green, on_loan=amber, damaged=orange, maintenance=red
   - Donation/Discarded badge shown when item has deletion_reason
-  - Pagination; buttons: "+ Novo item" + "Empréstimos" (leadership+)
+  - Pagination; buttons: "+ Novo item" + "Empréstimos" + "Categorias" (leadership+)
   - "Importar planilha" button (leadership+): triggers hidden file input (.xlsx),
     calls POST /inventory/items/import, shows success toast with created count;
     if row errors → opens dialog listing each "Linha {row}: {reason}"
@@ -74,6 +74,14 @@ Quick reference for agents. Read this only to locate a specific page or check wh
     client-side via SheetJS; header row + one example row; no backend call
   - Inventory import: category_warnings dialog — shows rows where category name
     was fuzzy-matched, with informed_name → matched_name per row
+
+- Categories → app/(dashboard)/inventory/categories/page.tsx
+  - Hook: useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory, useMe
+  - Lists all categories; leadership-only edit/delete per row
+  - Inline edit: row transforms into input + Salvar/Cancelar; Enter/Escape shortcuts
+  - Create: Dialog with name input (leadership+)
+  - Delete: confirmation Dialog naming the category; warns items will lose their category
+  - Empty state + skeleton loading + error state
 
 - New item → app/(dashboard)/inventory/new/page.tsx
   - Hook: useCreateItem, useCategories, useCreateCategory
