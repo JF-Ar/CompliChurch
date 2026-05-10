@@ -8,9 +8,12 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/google/uuid"
 	"github.com/xuri/excelize/v2"
+	"golang.org/x/text/transform"
+	"golang.org/x/text/unicode/norm"
 
 	"github.com/jf-ar/compli-church/internal/ports"
 )
@@ -305,10 +308,13 @@ func (s *InventoryService) ImportItems(ctx context.Context, churchID uuid.UUID, 
 	}
 	catMap := make(map[string]*ports.ItemCategory, len(cats))
 	for i := range cats {
-		catMap[strings.ToLower(strings.TrimSpace(cats[i].Name))] = &cats[i]
+		catMap[normalizeCategory(cats[i].Name)] = &cats[i]
 	}
 
-	result := &ports.ItemImportResult{Errors: []ports.ItemImportRowError{}}
+	result := &ports.ItemImportResult{
+		Errors:           []ports.ItemImportRowError{},
+		CategoryWarnings: []ports.ItemImportCategoryWarning{},
+	}
 
 	for i, row := range rows[1:] {
 		rowNum := i + 2 // 1-based; row 1 is the header
@@ -334,15 +340,35 @@ func (s *InventoryService) ImportItems(ctx context.Context, churchID uuid.UUID, 
 		// Resolve or create category.
 		var categoryID *uuid.UUID
 		if catName := col(row, "category"); catName != "" {
-			key := strings.ToLower(catName)
-			cat, found := catMap[key]
+			normalizedInput := normalizeCategory(catName)
+			cat, found := catMap[normalizedInput]
+			if !found {
+				// Fuzzy match: find closest existing category by Levenshtein distance.
+				bestDist := len([]rune(normalizedInput)) + 1
+				var bestKey string
+				for key := range catMap {
+					if d := levenshtein(normalizedInput, key); d < bestDist {
+						bestDist = d
+						bestKey = key
+					}
+				}
+				if bestKey != "" && bestDist <= 2 && bestDist < len([]rune(normalizedInput))/2 {
+					cat = catMap[bestKey]
+					found = true
+					result.CategoryWarnings = append(result.CategoryWarnings, ports.ItemImportCategoryWarning{
+						Row:          rowNum,
+						InformedName: catName,
+						MatchedName:  cat.Name,
+					})
+				}
+			}
 			if !found {
 				newCat, err := s.repo.CreateCategory(ctx, churchID, ports.ItemCategoryCreateInput{Name: catName})
 				if err != nil {
 					result.Errors = append(result.Errors, ports.ItemImportRowError{Row: rowNum, Reason: "failed to resolve category: " + err.Error()})
 					continue
 				}
-				catMap[key] = newCat
+				catMap[normalizeCategory(catName)] = newCat
 				cat = newCat
 			}
 			categoryID = &cat.ID
@@ -412,6 +438,53 @@ func normalizeItemType(s string) (string, error) {
 	default:
 		return "", errors.New("invalid item_type")
 	}
+}
+
+// normalizeCategory lowercases, strips accents, and collapses extra spaces.
+// Used for fuzzy category matching during import.
+func normalizeCategory(s string) string {
+	s = strings.TrimSpace(s)
+	t := transform.Chain(norm.NFD, transform.RemoveFunc(func(r rune) bool {
+		return unicode.Is(unicode.Mn, r)
+	}), norm.NFC)
+	result, _, _ := transform.String(t, s)
+	return strings.ToLower(strings.Join(strings.Fields(result), " "))
+}
+
+func levenshtein(a, b string) int {
+	ra, rb := []rune(a), []rune(b)
+	la, lb := len(ra), len(rb)
+	dp := make([][]int, la+1)
+	for i := range dp {
+		dp[i] = make([]int, lb+1)
+		dp[i][0] = i
+	}
+	for j := 0; j <= lb; j++ {
+		dp[0][j] = j
+	}
+	for i := 1; i <= la; i++ {
+		for j := 1; j <= lb; j++ {
+			if ra[i-1] == rb[j-1] {
+				dp[i][j] = dp[i-1][j-1]
+			} else {
+				dp[i][j] = 1 + min3(dp[i-1][j], dp[i][j-1], dp[i-1][j-1])
+			}
+		}
+	}
+	return dp[la][lb]
+}
+
+func min3(a, b, c int) int {
+	if a < b {
+		if a < c {
+			return a
+		}
+		return c
+	}
+	if b < c {
+		return b
+	}
+	return c
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────

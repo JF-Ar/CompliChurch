@@ -320,10 +320,17 @@ type ItemImportRowError struct {
 	Reason string
 }
 
+type ItemImportCategoryWarning struct {
+	Row          int
+	InformedName string
+	MatchedName  string
+}
+
 type ItemImportResult struct {
-	Created int
-	Skipped int
-	Errors  []ItemImportRowError
+	Created          int
+	Skipped          int
+	Errors           []ItemImportRowError
+	CategoryWarnings []ItemImportCategoryWarning
 }
 
 type InventoryRepository interface {

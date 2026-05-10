@@ -152,10 +152,12 @@ Repo: adapters/postgres/member_repo.go:MemberRepo
   - Header row (row 1) matched case-insensitively: name, item_type, location, category,
     description, asset_number, quantity, qty_min_alert, serial_number, notes
   - item_type normalisation: "asset"|"bem" → asset; "consumable"|"consumível"|"consumivel" → consumable
-  - Category resolved by name (case-insensitive); created on-demand if absent
+  - Category resolved with fuzzy match: accent normalization (NFD strip) + Levenshtein ≤ 2
+    AND distance < len(input)/2; exact match first, then fuzzy, then create new on-demand
+  - Fuzzy matches appended to category_warnings: [{row, informed_name, matched_name}]
   - Asset number auto-generated for assets when blank (same PREFIX-NNN logic as CreateItem)
   - Blank name rows counted as skipped; all other failures appended as row errors
-  - Returns 200 always: { created, skipped, errors: [{row, reason}] }
+  - Returns 200 always: { created, skipped, errors: [{row, reason}], category_warnings: [{row, informed_name, matched_name}] }
 
 - GET /inventory/items/{id} → handlers/inventory.go:GetItemByID
 

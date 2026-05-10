@@ -801,19 +801,29 @@ func (h *InventoryHandler) ImportItems(w http.ResponseWriter, r *http.Request) {
 		Row    int    `json:"row"`
 		Reason string `json:"reason"`
 	}
+	type categoryWarning struct {
+		Row          int    `json:"row"`
+		InformedName string `json:"informed_name"`
+		MatchedName  string `json:"matched_name"`
+	}
 	type response struct {
-		Created int        `json:"created"`
-		Skipped int        `json:"skipped"`
-		Errors  []rowError `json:"errors"`
+		Created          int               `json:"created"`
+		Skipped          int               `json:"skipped"`
+		Errors           []rowError        `json:"errors"`
+		CategoryWarnings []categoryWarning `json:"category_warnings"`
 	}
 
 	resp := response{
-		Created: result.Created,
-		Skipped: result.Skipped,
-		Errors:  make([]rowError, len(result.Errors)),
+		Created:          result.Created,
+		Skipped:          result.Skipped,
+		Errors:           make([]rowError, len(result.Errors)),
+		CategoryWarnings: make([]categoryWarning, len(result.CategoryWarnings)),
 	}
 	for i, e := range result.Errors {
 		resp.Errors[i] = rowError{Row: e.Row, Reason: e.Reason}
+	}
+	for i, w := range result.CategoryWarnings {
+		resp.CategoryWarnings[i] = categoryWarning{Row: w.Row, InformedName: w.InformedName, MatchedName: w.MatchedName}
 	}
 
 	writeJSON(w, http.StatusOK, resp)
