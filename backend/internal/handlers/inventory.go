@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -765,6 +767,56 @@ func (h *InventoryHandler) ReturnLoan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, buildLoanResponse(loan))
+}
+
+// ── Import ────────────────────────────────────────────────────────────────────
+
+func (h *InventoryHandler) ImportItems(w http.ResponseWriter, r *http.Request) {
+	auth := AuthContextFromContext(r.Context())
+
+	if err := r.ParseMultipartForm(10 << 20); err != nil {
+		writeError(w, http.StatusBadRequest, "BAD_REQUEST", "Invalid multipart form or file too large (max 10MB)", "")
+		return
+	}
+
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "BAD_REQUEST", "file field is required", "file")
+		return
+	}
+	defer file.Close()
+
+	if strings.ToLower(filepath.Ext(header.Filename)) != ".xlsx" {
+		writeError(w, http.StatusBadRequest, "INVALID_FILE_TYPE", "Only .xlsx files are accepted", "file")
+		return
+	}
+
+	result, err := h.svc.ImportItems(r.Context(), auth.ChurchID, file)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "BAD_REQUEST", err.Error(), "file")
+		return
+	}
+
+	type rowError struct {
+		Row    int    `json:"row"`
+		Reason string `json:"reason"`
+	}
+	type response struct {
+		Created int        `json:"created"`
+		Skipped int        `json:"skipped"`
+		Errors  []rowError `json:"errors"`
+	}
+
+	resp := response{
+		Created: result.Created,
+		Skipped: result.Skipped,
+		Errors:  make([]rowError, len(result.Errors)),
+	}
+	for i, e := range result.Errors {
+		resp.Errors[i] = rowError{Row: e.Row, Reason: e.Reason}
+	}
+
+	writeJSON(w, http.StatusOK, resp)
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────

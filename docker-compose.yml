@@ -5,6 +5,8 @@ services:
       POSTGRES_DB: igreja_organizada
       POSTGRES_USER: church
       POSTGRES_PASSWORD: church
+    ports:
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -25,6 +27,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
+      - ./backend:/app
       - ./backend/keys:/app/keys:ro
     restart: unless-stopped
 

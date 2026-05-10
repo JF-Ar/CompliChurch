@@ -4,10 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/xuri/excelize/v2"
 
 	"github.com/jf-ar/compli-church/internal/ports"
 )
@@ -255,6 +258,160 @@ func (s *InventoryService) ReturnLoan(ctx context.Context, id, churchID uuid.UUI
 		return nil, err
 	}
 	return loan, nil
+}
+
+// ── Import ────────────────────────────────────────────────────────────────────
+
+func (s *InventoryService) ImportItems(ctx context.Context, churchID uuid.UUID, file io.Reader) (*ports.ItemImportResult, error) {
+	f, err := excelize.OpenReader(file)
+	if err != nil {
+		return nil, fmt.Errorf("invalid xlsx file: %w", err)
+	}
+	defer f.Close()
+
+	rows, err := f.GetRows(f.GetSheetName(0))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read sheet: %w", err)
+	}
+	if len(rows) < 2 {
+		return &ports.ItemImportResult{}, nil
+	}
+
+	// Map header names (case-insensitive) to column indices.
+	colIdx := map[string]int{}
+	for i, cell := range rows[0] {
+		colIdx[strings.ToLower(strings.TrimSpace(cell))] = i
+	}
+
+	col := func(row []string, name string) string {
+		idx, ok := colIdx[name]
+		if !ok || idx >= len(row) {
+			return ""
+		}
+		return strings.TrimSpace(row[idx])
+	}
+
+	optStr := func(v string) *string {
+		if v == "" {
+			return nil
+		}
+		return &v
+	}
+
+	// Load existing categories once; create new ones on-demand.
+	cats, err := s.repo.ListCategories(ctx, churchID)
+	if err != nil {
+		return nil, err
+	}
+	catMap := make(map[string]*ports.ItemCategory, len(cats))
+	for i := range cats {
+		catMap[strings.ToLower(strings.TrimSpace(cats[i].Name))] = &cats[i]
+	}
+
+	result := &ports.ItemImportResult{Errors: []ports.ItemImportRowError{}}
+
+	for i, row := range rows[1:] {
+		rowNum := i + 2 // 1-based; row 1 is the header
+
+		name := col(row, "name")
+		if name == "" {
+			result.Skipped++
+			continue
+		}
+
+		itemType, err := normalizeItemType(col(row, "item_type"))
+		if err != nil {
+			result.Errors = append(result.Errors, ports.ItemImportRowError{Row: rowNum, Reason: "item_type must be asset or consumable"})
+			continue
+		}
+
+		location := col(row, "location")
+		if location == "" {
+			result.Errors = append(result.Errors, ports.ItemImportRowError{Row: rowNum, Reason: "location is required"})
+			continue
+		}
+
+		// Resolve or create category.
+		var categoryID *uuid.UUID
+		if catName := col(row, "category"); catName != "" {
+			key := strings.ToLower(catName)
+			cat, found := catMap[key]
+			if !found {
+				newCat, err := s.repo.CreateCategory(ctx, churchID, ports.ItemCategoryCreateInput{Name: catName})
+				if err != nil {
+					result.Errors = append(result.Errors, ports.ItemImportRowError{Row: rowNum, Reason: "failed to resolve category: " + err.Error()})
+					continue
+				}
+				catMap[key] = newCat
+				cat = newCat
+			}
+			categoryID = &cat.ID
+		}
+
+		// Asset number: provided or auto-generated.
+		var assetNumber *string
+		if raw := col(row, "asset_number"); raw != "" {
+			assetNumber = &raw
+		} else if itemType == "asset" {
+			prefix := s.assetPrefix(ctx, churchID, categoryID)
+			next, err := s.repo.CountItemsWithPrefix(ctx, churchID, prefix)
+			if err != nil {
+				result.Errors = append(result.Errors, ports.ItemImportRowError{Row: rowNum, Reason: "failed to generate asset number"})
+				continue
+			}
+			num := fmt.Sprintf("%s-%03d", prefix, next+1)
+			assetNumber = &num
+		}
+
+		qty := 1
+		if q := col(row, "quantity"); q != "" {
+			if n, err := strconv.Atoi(q); err == nil && n > 0 {
+				qty = n
+			}
+		}
+
+		var qtyMinAlert *int
+		if q := col(row, "qty_min_alert"); q != "" {
+			if n, err := strconv.Atoi(q); err == nil {
+				qtyMinAlert = &n
+			}
+		}
+
+		_, err = s.repo.CreateItem(ctx, churchID, ports.ItemCreateInput{
+			ItemType:     itemType,
+			Name:         name,
+			Description:  optStr(col(row, "description")),
+			CategoryID:   categoryID,
+			AssetNumber:  assetNumber,
+			Location:     location,
+			Quantity:     qty,
+			QtyMinAlert:  qtyMinAlert,
+			SerialNumber: optStr(col(row, "serial_number")),
+			Notes:        optStr(col(row, "notes")),
+		})
+		if err != nil {
+			reason := err.Error()
+			if errors.Is(err, ports.ErrAlreadyExists) {
+				reason = "asset_number already exists"
+			}
+			result.Errors = append(result.Errors, ports.ItemImportRowError{Row: rowNum, Reason: reason})
+			continue
+		}
+		result.Created++
+	}
+
+	return result, nil
+}
+
+func normalizeItemType(s string) (string, error) {
+	switch strings.ToLower(s) {
+	case "asset", "bem":
+		return "asset", nil
+	case "consumable", "consumível", "consumivel":
+		return "consumable", nil
+	default:
+		return "", errors.New("invalid item_type")
+	}
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────

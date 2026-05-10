@@ -147,6 +147,16 @@ Repo: adapters/postgres/member_repo.go:MemberRepo
   - Prefix = first 4 alpha chars of category name, uppercased; "ITEM" if no category
   - 409 ASSET_NUMBER_EXISTS on duplicate asset_number
 
+- POST /inventory/items/import → handlers/inventory.go:ImportItems _(leadership+)_
+  - multipart/form-data; field name = "file"; .xlsx only
+  - Header row (row 1) matched case-insensitively: name, item_type, location, category,
+    description, asset_number, quantity, qty_min_alert, serial_number, notes
+  - item_type normalisation: "asset"|"bem" → asset; "consumable"|"consumível"|"consumivel" → consumable
+  - Category resolved by name (case-insensitive); created on-demand if absent
+  - Asset number auto-generated for assets when blank (same PREFIX-NNN logic as CreateItem)
+  - Blank name rows counted as skipped; all other failures appended as row errors
+  - Returns 200 always: { created, skipped, errors: [{row, reason}] }
+
 - GET /inventory/items/{id} → handlers/inventory.go:GetItemByID
 
 - PUT /inventory/items/{id} → handlers/inventory.go:UpdateItem _(leadership+)_

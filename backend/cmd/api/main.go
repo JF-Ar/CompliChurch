@@ -151,6 +151,7 @@ func main() {
 				r.Route("/items", func(r chi.Router) {
 					r.Get("/", inventoryHandler.ListItems)
 					r.With(handlers.RequireProfile("leadership")).Post("/", inventoryHandler.CreateItem)
+					r.With(handlers.RequireProfile("leadership")).Post("/import", inventoryHandler.ImportItems)
 					r.Get("/{id}", inventoryHandler.GetItemByID)
 					r.With(handlers.RequireProfile("leadership")).Put("/{id}", inventoryHandler.UpdateItem)
 					r.With(handlers.RequireProfile("leadership")).Post("/{id}/photo", inventoryHandler.UploadPhoto)

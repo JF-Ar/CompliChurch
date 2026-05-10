@@ -315,6 +315,17 @@ type LoanReturnInput struct {
 	ReturnNotes     *string
 }
 
+type ItemImportRowError struct {
+	Row    int
+	Reason string
+}
+
+type ItemImportResult struct {
+	Created int
+	Skipped int
+	Errors  []ItemImportRowError
+}
+
 type InventoryRepository interface {
 	// Categories
 	ListCategories(ctx context.Context, churchID uuid.UUID) ([]ItemCategory, error)
