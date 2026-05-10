@@ -21,18 +21,33 @@ export interface ListResponse<T> {
   meta: PaginationMeta;
 }
 
+let refreshPromise: Promise<string | null> | null = null;
+
 async function doRefresh(): Promise<string | null> {
-  const res = await fetch(`${BASE_URL}/auth/refresh`, {
-    method: "POST",
-    credentials: "include",
-  });
-  if (!res.ok) {
-    clearSession();
-    return null;
-  }
-  const data: { access_token: string } = await res.json();
-  setAccessToken(data.access_token);
-  return data.access_token;
+  if (refreshPromise) return refreshPromise;
+
+  refreshPromise = (async () => {
+    try {
+      const res = await fetch(`${BASE_URL}/auth/refresh`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        clearSession();
+        if (typeof window !== "undefined") {
+          window.location.href = "/login";
+        }
+        return null;
+      }
+      const data: { access_token: string } = await res.json();
+      setAccessToken(data.access_token);
+      return data.access_token;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
 }
 
 export async function apiFetch<T>(

@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   listCategories,
   createCategory,
@@ -13,6 +14,7 @@ import {
   uploadItemPhoto,
   discardItem,
   donateItem,
+  importItems,
   listLoans,
   createLoan,
   getLoan,
@@ -21,6 +23,7 @@ import {
   returnLoan,
   listCongregations,
 } from "@/lib/api";
+import type { ApiError } from "@/lib/api/client";
 import type { ItemCreate, ItemUpdate, LoanCreate, LoanReturn } from "@/lib/api";
 
 export const categoryKeys = {
@@ -201,6 +204,18 @@ export function useReturnLoan() {
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: LoanReturn }) => returnLoan(id, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: loanKeys.all }),
+  });
+}
+
+export function useImportItems() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (file: File) => importItems(file),
+    onSuccess: () => qc.invalidateQueries({ queryKey: itemKeys.all }),
+    onError: (err) => {
+      const e = err as unknown as ApiError;
+      toast.error(e?.error?.message ?? "Erro ao importar planilha. Tente novamente.");
+    },
   });
 }
 

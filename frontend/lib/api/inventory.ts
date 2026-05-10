@@ -47,7 +47,7 @@ export interface ItemUpdate {
   description?: string | null;
   category_id?: string | null;
   location?: string;
-  status?: "available" | "on_loan" | "maintenance";
+  status?: "available" | "on_loan" | "maintenance" | "damaged";
   quantity?: number;
   qty_min_alert?: number | null;
   serial_number?: string | null;
@@ -190,4 +190,18 @@ export async function returnLoan(id: string, data: LoanReturn): Promise<Loan> {
     method: "POST",
     body: JSON.stringify(data),
   });
+}
+
+// ── Import ────────────────────────────────────────────────────────────────────
+
+export interface ItemImportResult {
+  created: number;
+  skipped: number;
+  errors: Array<{ row: number; reason: string }>;
+}
+
+export async function importItems(file: File): Promise<ItemImportResult> {
+  const body = new FormData();
+  body.append("file", file);
+  return apiFetch<ItemImportResult>("/inventory/items/import", { method: "POST", body });
 }

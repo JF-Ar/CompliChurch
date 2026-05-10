@@ -1,14 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
+import * as XLSX from "xlsx";
+import { toast } from "sonner";
 import { useMe } from "@/hooks/useMembers";
-import { useItems, useCategories } from "@/hooks/useInventory";
+import { useItems, useCategories, useImportItems } from "@/hooks/useInventory";
 import { useDebounce } from "@/hooks/useDebounce";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
 
 const STATUS_LABELS: Record<string, string> = {
   available: "Disponível",
@@ -37,6 +48,9 @@ export default function InventoryPage() {
   const [itemType, setItemType] = useState("");
   const [includeDeleted, setIncludeDeleted] = useState(false);
   const [page, setPage] = useState(1);
+  const [importErrors, setImportErrors] = useState<Array<{ row: number; reason: string }> | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const debouncedSearch = useDebounce(search, 400);
 
@@ -44,6 +58,8 @@ export default function InventoryPage() {
   const isLeadership = meData?.roles.some(
     (r) => r.base_profile === "leadership" || r.base_profile === "pastor"
   );
+
+  const { mutateAsync: doImport, isPending: isImporting } = useImportItems();
 
   const { data: categoriesData } = useCategories();
 
@@ -63,14 +79,61 @@ export default function InventoryPage() {
 
   const hasFilters = !!(debouncedSearch || categoryId || status || itemType);
 
+  async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    try {
+      const result = await doImport(file);
+      if (result.errors.length === 0) {
+        toast.success(`${result.created} itens importados com sucesso`);
+      } else {
+        toast.success(`${result.created} importados · ${result.errors.length} com erro`);
+        setImportErrors(result.errors);
+      }
+    } catch {
+      // network error already handled by hook's onError
+    }
+  }
+
+  function downloadTemplate() {
+    const headers = [
+      "name", "item_type", "location", "category", "description",
+      "asset_number", "quantity", "qty_min_alert", "serial_number", "notes",
+    ];
+    const example = [
+      "Violão Yamaha", "asset", "Sala Principal", "Instrumentos",
+      "Violão acústico", "", "1", "", "", "",
+    ];
+    const ws = XLSX.utils.aoa_to_sheet([headers, example]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Itens");
+    XLSX.writeFile(wb, "modelo_patrimonio.xlsx");
+  }
+
   return (
     <div className="flex flex-col gap-4 p-4 pb-24 md:pb-6 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <h1 className="text-xl font-semibold">Patrimônio</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 justify-end">
           {isLeadership && (
             <Button asChild variant="outline" size="sm">
               <Link href="/inventory/loans">Empréstimos</Link>
+            </Button>
+          )}
+          {isLeadership && (
+            <Button variant="outline" size="sm" onClick={downloadTemplate}>
+              Baixar modelo
+            </Button>
+          )}
+          {isLeadership && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isImporting}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {isImporting ? "Importando…" : "Importar planilha"}
             </Button>
           )}
           {isLeadership && (
@@ -80,6 +143,13 @@ export default function InventoryPage() {
           )}
         </div>
       </div>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".xlsx"
+        className="hidden"
+        onChange={handleFileSelected}
+      />
 
       {/* Filters */}
       <div className="flex flex-col gap-2">
@@ -255,6 +325,30 @@ export default function InventoryPage() {
           </Button>
         </div>
       )}
+
+      {/* Import errors dialog */}
+      <Dialog open={!!importErrors} onOpenChange={(open) => { if (!open) setImportErrors(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Erros na importação</DialogTitle>
+            <DialogDescription>
+              Os itens abaixo não foram importados. Corrija a planilha e importe novamente.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-1.5 max-h-64 overflow-y-auto">
+            {importErrors?.map((e) => (
+              <p key={e.row} className="text-sm">
+                <span className="font-medium">Linha {e.row}:</span> {e.reason}
+              </p>
+            ))}
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Fechar</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

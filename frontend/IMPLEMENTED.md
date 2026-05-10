@@ -61,12 +61,17 @@ Quick reference for agents. Read this only to locate a specific page or check wh
 ## Inventory
 
 - Item list → app/(dashboard)/inventory/page.tsx
-  - Hook: useItems(params), useCategories, useMe
+  - Hook: useItems(params), useCategories, useMe, useImportItems
   - Filters: search (debounced), category, status, item_type
   - include_deleted toggle (leadership+ only)
   - Status badges: available=green, on_loan=amber, damaged=orange, maintenance=red
   - Donation/Discarded badge shown when item has deletion_reason
   - Pagination; buttons: "+ Novo item" + "Empréstimos" (leadership+)
+  - "Importar planilha" button (leadership+): triggers hidden file input (.xlsx),
+    calls POST /inventory/items/import, shows success toast with created count;
+    if row errors → opens dialog listing each "Linha {row}: {reason}"
+  - "Baixar modelo" button (leadership+): generates and downloads modelo_patrimonio.xlsx
+    client-side via SheetJS; header row + one example row; no backend call
 
 - New item → app/(dashboard)/inventory/new/page.tsx
   - Hook: useCreateItem, useCategories, useCreateCategory
@@ -177,7 +182,7 @@ Types: `Schedule`, `ScheduleSummary`, `ScheduleSlot`, `ScheduleSuggestion`, `Ava
 Types: `EventSummary`
 - `listEvents(params?)` → GET /agenda/events
 
-### lib/api/inventory.ts (193 lines)
+### lib/api/inventory.ts (210 lines)
 Types: `ItemCategory`, `Item`, `ItemCreate`, `ItemUpdate`, `Loan`, `LoanCreate`, `LoanReturn`
 - `listCategories()` → GET /inventory/categories
 - `createCategory(data)` → POST /inventory/categories
@@ -190,6 +195,7 @@ Types: `ItemCategory`, `Item`, `ItemCreate`, `ItemUpdate`, `Loan`, `LoanCreate`,
 - `uploadItemPhoto(id, file)` → POST /inventory/items/{id}/photo
 - `discardItem(id)` → POST /inventory/items/{id}/discard
 - `donateItem(id)` → POST /inventory/items/{id}/donate
+- `importItems(file)` → POST /inventory/items/import — multipart, returns ItemImportResult
 - `listLoans(params?)` → GET /inventory/loans
 - `createLoan(data)` → POST /inventory/loans
 - `getLoan(id)` → GET /inventory/loans/{id}
@@ -215,7 +221,7 @@ Instruments catalog: `useInstruments`
 
 Categories: `useCategories`, `useCreateCategory`, `useUpdateCategory`, `useDeleteCategory`
 Items: `useItems`, `useItem`, `useCreateItem`, `useUpdateItem`, `useUploadItemPhoto`,
-       `useDiscardItem`, `useDonateItem`
+       `useDiscardItem`, `useDonateItem`, `useImportItems`
 Loans: `useLoans`, `useLoan`, `useCreateLoan`, `useApproveLoan`, `useRejectLoan`, `useReturnLoan`
 Churches: `useCongregations`
 
