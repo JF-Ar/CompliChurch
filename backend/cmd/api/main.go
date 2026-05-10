@@ -65,6 +65,10 @@ func main() {
 	inventorySvc := services.NewInventoryService(inventoryRepo)
 	inventoryHandler := handlers.NewInventoryHandler(inventorySvc)
 
+	worshipRepo := postgres.NewWorshipRepo(pool)
+	scheduleSvc := services.NewScheduleService(worshipRepo, nil) // mailer wired in phase 2
+	scheduleHandler := handlers.NewScheduleHandler(scheduleSvc)
+
 	allowedOrigins := []string{"http://localhost:3000"}
 	if cfg.Env == "production" {
 		allowedOrigins = []string{"https://igreaorganizada.com.br", "https://www.igreaorganizada.com.br"}
@@ -137,7 +141,32 @@ func main() {
 				r.With(handlers.RequireProfile("leadership")).Delete("/{id}", instrumentHandler.DeleteInstrument)
 			})
 
-			// ── Inventory ─────────────────────────────────────────────────
+			// ── Availability exceptions ───────────────────────────────────
+				r.Route("/availability/exceptions", func(r chi.Router) {
+					r.Get("/", scheduleHandler.ListMyExceptions)
+					r.Post("/", scheduleHandler.CreateException)
+					// /all must precede /{id} to avoid chi treating "all" as a param
+					r.With(handlers.RequireProfile("leadership")).Get("/all", scheduleHandler.ListAllExceptions)
+					r.Delete("/{id}", scheduleHandler.DeleteException)
+				})
+
+				// ── Schedules ─────────────────────────────────────────────────
+				r.Route("/schedules", func(r chi.Router) {
+					r.Get("/", scheduleHandler.ListSchedules)
+					r.With(handlers.RequireProfile("leadership")).Post("/", scheduleHandler.CreateSchedule)
+					// /suggest/{sunday_date} must precede /{id}
+					r.With(handlers.RequireProfile("leadership")).Get("/suggest/{sunday_date}", scheduleHandler.SuggestSchedule)
+					r.Get("/{id}", scheduleHandler.GetSchedule)
+					r.With(handlers.RequireProfile("leadership")).Put("/{id}", scheduleHandler.UpdateSchedule)
+					r.With(handlers.RequireProfile("leadership")).Delete("/{id}", scheduleHandler.CancelSchedule)
+					r.With(handlers.RequireProfile("leadership")).Post("/{id}/publish", scheduleHandler.PublishSchedule)
+					r.Get("/{id}/slots", scheduleHandler.ListSlots)
+					r.With(handlers.RequireProfile("leadership")).Post("/{id}/slots", scheduleHandler.AddSlot)
+					r.With(handlers.RequireProfile("leadership")).Delete("/{id}/slots/{slot_id}", scheduleHandler.RemoveSlot)
+					r.With(handlers.RequireProfile("musician")).Post("/{id}/slots/{slot_id}/confirm", scheduleHandler.ConfirmSlot)
+				})
+
+				// ── Inventory ─────────────────────────────────────────────────
 			r.Route("/inventory", func(r chi.Router) {
 				// Categories
 				r.Route("/categories", func(r chi.Router) {

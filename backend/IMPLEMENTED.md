@@ -126,6 +126,58 @@ Repo: adapters/postgres/member_repo.go:MemberRepo
 
 ---
 
+## Worship — Availability Exceptions
+
+- GET /availability/exceptions → handlers/schedules.go:ListMyExceptions _(*)_
+  - Returns own exceptions for the given month (YYYY-MM); defaults to current month
+- POST /availability/exceptions → handlers/schedules.go:CreateException _(*)_
+  - Body: { unavailable_date: "YYYY-MM-DD", reason?: string }
+  - 409 EXCEPTION_ALREADY_EXISTS
+- DELETE /availability/exceptions/{id} → handlers/schedules.go:DeleteException _(*)_
+  - Verifies member_id ownership — cannot delete another member's exception
+- GET /availability/exceptions/all → handlers/schedules.go:ListAllExceptions _(leadership+)_
+  - month param required (YYYY-MM); returns all church exceptions with MemberSummary
+
+## Worship — Schedules
+
+- GET /schedules → handlers/schedules.go:ListSchedules _(*)_
+  - Params: page (default 1), per_page (default 12), status (draft|published|cancelled)
+  - Returns ScheduleSummary list with slot_count
+- POST /schedules → handlers/schedules.go:CreateSchedule _(leadership+)_
+  - Body: { sunday_date, notes? }; status defaults to 'draft'
+  - 409 SCHEDULE_ALREADY_EXISTS
+- GET /schedules/suggest/{sunday_date} → handlers/schedules.go:SuggestSchedule _(leadership+)_
+  - Algorithm: musicians → remove unavailable (exceptions) → flag consecutive (preceding Sunday)
+  - Groups available by primary instrument; picks fewest-slots-in-4-weeks per group
+  - Returns: suggested_slots [{member_id, member_name, instrument_id, instrument_name, warning}],
+    available_members, unavailable_members
+  - Route registered BEFORE /{id} to avoid chi routing conflict
+- GET /schedules/{id} → handlers/schedules.go:GetSchedule _(*)_
+  - Full schedule with all slots and member/instrument summaries
+- PUT /schedules/{id} → handlers/schedules.go:UpdateSchedule _(leadership+)_
+  - Body: { notes? } — only notes is updatable
+- DELETE /schedules/{id} → handlers/schedules.go:CancelSchedule _(leadership+)_
+  - Sets status='cancelled'; 409 SCHEDULE_ALREADY_CANCELLED
+- POST /schedules/{id}/publish → handlers/schedules.go:PublishSchedule _(leadership+)_
+  - Must be in 'draft' status; 422 SCHEDULE_NOT_DRAFT
+  - Atomically sets status='published', published_at=NOW(), notified_at=NOW() on all slots
+  - Async email to each slot member (template: schedule_published)
+- GET /schedules/{id}/slots → handlers/schedules.go:ListSlots _(*)_
+- POST /schedules/{id}/slots → handlers/schedules.go:AddSlot _(leadership+)_
+  - Body: { member_id, instrument_id?, function_in_scale }
+  - Schedule must be in 'draft'; 409 SLOT_ALREADY_EXISTS if member already in schedule
+- DELETE /schedules/{id}/slots/{slot_id} → handlers/schedules.go:RemoveSlot _(leadership+)_
+- POST /schedules/{id}/slots/{slot_id}/confirm → handlers/schedules.go:ConfirmSlot _(musician+)_
+  - Member can only confirm their own slot; 403 SLOT_NOT_OWNED
+
+Repo: adapters/postgres/worship_repo.go:WorshipRepo
+Service: services/schedule_service.go:ScheduleService
+Error sentinels: ErrScheduleNotFound, ErrScheduleAlreadyExists, ErrScheduleAlreadyCancelled,
+  ErrScheduleNotDraft, ErrSlotNotFound, ErrSlotAlreadyExists, ErrSlotNotOwned,
+  ErrExceptionNotFound, ErrExceptionAlreadyExists
+
+---
+
 ## Inventory — Categories
 
 - GET /inventory/categories → handlers/inventory.go:ListCategories

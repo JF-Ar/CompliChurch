@@ -333,6 +333,114 @@ type ItemImportResult struct {
 	CategoryWarnings []ItemImportCategoryWarning
 }
 
+// ── Worship domain types ──────────────────────────────────────────────────────
+
+type MemberSummary struct {
+	ID       uuid.UUID
+	Name     string
+	Email    string
+	IsActive bool
+}
+
+type AvailabilityException struct {
+	ID              uuid.UUID
+	MemberID        uuid.UUID
+	ChurchID        uuid.UUID
+	UnavailableDate string // "2025-05-04"
+	Reason          *string
+	CreatedAt       time.Time
+}
+
+type AvailabilityExceptionWithMember struct {
+	ID              uuid.UUID
+	Member          MemberSummary
+	UnavailableDate string
+	Reason          *string
+}
+
+type ScheduleSlot struct {
+	ID              uuid.UUID
+	ScheduleID      uuid.UUID
+	Member          MemberSummary
+	Instrument      *Instrument
+	FunctionInScale string
+	Confirmed       bool
+	NotifiedAt      *time.Time
+}
+
+type Schedule struct {
+	ID          uuid.UUID
+	ChurchID    uuid.UUID
+	SundayDate  string
+	Status      string
+	CreatedBy   MemberSummary
+	ApprovedBy  *MemberSummary
+	Notes       *string
+	PublishedAt *time.Time
+	Slots       []ScheduleSlot
+	CreatedAt   time.Time
+}
+
+type ScheduleSummary struct {
+	ID          uuid.UUID
+	SundayDate  string
+	Status      string
+	SlotCount   int
+	PublishedAt *time.Time
+}
+
+type MemberWithInstruments struct {
+	Member            MemberSummary
+	PrimaryInstrument *Instrument
+	Instruments       []Instrument
+}
+
+type SuggestedSlot struct {
+	MemberID       uuid.UUID
+	MemberName     string
+	InstrumentID   *uuid.UUID
+	InstrumentName string
+	Warning        *string
+}
+
+type UnavailableMember struct {
+	Member MemberSummary
+	Reason *string
+}
+
+type ScheduleSuggestion struct {
+	SundayDate         string
+	SuggestedSlots     []SuggestedSlot
+	AvailableMembers   []MemberSummary
+	UnavailableMembers []UnavailableMember
+}
+
+// WorshipRepository is the port the schedule service depends on.
+type WorshipRepository interface {
+	// Exceptions
+	CreateException(ctx context.Context, churchID, memberID uuid.UUID, date string, reason *string) (*AvailabilityException, error)
+	DeleteException(ctx context.Context, id, memberID, churchID uuid.UUID) error
+	ListMyExceptions(ctx context.Context, memberID, churchID uuid.UUID, month string) ([]*AvailabilityException, error)
+	ListAllExceptions(ctx context.Context, churchID uuid.UUID, month string) ([]*AvailabilityExceptionWithMember, error)
+	// Schedules
+	CreateSchedule(ctx context.Context, churchID, createdBy uuid.UUID, sundayDate string, notes *string) (*Schedule, error)
+	GetSchedule(ctx context.Context, id, churchID uuid.UUID) (*Schedule, error)
+	ListSchedules(ctx context.Context, churchID uuid.UUID, status *string, page, perPage int) ([]*ScheduleSummary, int, error)
+	UpdateSchedule(ctx context.Context, id, churchID uuid.UUID, notes *string) (*Schedule, error)
+	CancelSchedule(ctx context.Context, id, churchID uuid.UUID) error
+	PublishSchedule(ctx context.Context, id, churchID uuid.UUID) (*Schedule, error)
+	// Slots
+	ListSlots(ctx context.Context, scheduleID, churchID uuid.UUID) ([]*ScheduleSlot, error)
+	AddSlot(ctx context.Context, scheduleID, churchID, memberID uuid.UUID, instrumentID *uuid.UUID, functionInScale string) (*ScheduleSlot, error)
+	RemoveSlot(ctx context.Context, slotID, scheduleID, churchID uuid.UUID) error
+	ConfirmSlot(ctx context.Context, slotID, scheduleID, memberID uuid.UUID) (*ScheduleSlot, error)
+	// Suggestion helpers
+	ListMusiciansInChurch(ctx context.Context, churchID uuid.UUID) ([]*MemberWithInstruments, error)
+	ListExceptionsForDate(ctx context.Context, churchID uuid.UUID, date string) ([]*AvailabilityException, error)
+	ListSlotsForDate(ctx context.Context, churchID uuid.UUID, date string) ([]*ScheduleSlot, error)
+	CountSlotsInLastNWeeks(ctx context.Context, churchID, memberID uuid.UUID, weeks int) (int, error)
+}
+
 type InventoryRepository interface {
 	// Categories
 	ListCategories(ctx context.Context, churchID uuid.UUID) ([]ItemCategory, error)
