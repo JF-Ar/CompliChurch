@@ -198,6 +198,7 @@ export interface ItemImportResult {
   created: number;
   skipped: number;
   errors: Array<{ row: number; reason: string }>;
+  category_warnings: Array<{ row: number; informed_name: string; matched_name: string }>;
 }
 
 export async function importItems(file: File): Promise<ItemImportResult> {

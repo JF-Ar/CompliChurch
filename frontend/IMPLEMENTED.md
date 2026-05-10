@@ -72,6 +72,8 @@ Quick reference for agents. Read this only to locate a specific page or check wh
     if row errors → opens dialog listing each "Linha {row}: {reason}"
   - "Baixar modelo" button (leadership+): generates and downloads modelo_patrimonio.xlsx
     client-side via SheetJS; header row + one example row; no backend call
+  - Inventory import: category_warnings dialog — shows rows where category name
+    was fuzzy-matched, with informed_name → matched_name per row
 
 - New item → app/(dashboard)/inventory/new/page.tsx
   - Hook: useCreateItem, useCategories, useCreateCategory

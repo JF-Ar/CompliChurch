@@ -49,6 +49,8 @@ export default function InventoryPage() {
   const [includeDeleted, setIncludeDeleted] = useState(false);
   const [page, setPage] = useState(1);
   const [importErrors, setImportErrors] = useState<Array<{ row: number; reason: string }> | null>(null);
+  const [categoryWarnings, setCategoryWarnings] = useState<Array<{ row: number; informed_name: string; matched_name: string }>>([]);
+  const [showCategoryWarnings, setShowCategoryWarnings] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -90,6 +92,10 @@ export default function InventoryPage() {
       } else {
         toast.success(`${result.created} importados · ${result.errors.length} com erro`);
         setImportErrors(result.errors);
+      }
+      if (result.category_warnings.length > 0) {
+        setCategoryWarnings(result.category_warnings);
+        setShowCategoryWarnings(true);
       }
     } catch {
       // network error already handled by hook's onError
@@ -345,6 +351,33 @@ export default function InventoryPage() {
           <DialogFooter>
             <DialogClose asChild>
               <Button variant="outline">Fechar</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Category warnings dialog */}
+      <Dialog open={showCategoryWarnings} onOpenChange={(open) => { if (!open) setShowCategoryWarnings(false); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Categorias ajustadas automaticamente</DialogTitle>
+            <DialogDescription>
+              As categorias abaixo foram aproximadas automaticamente. Verifique se o agrupamento está correto.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-1.5 max-h-64 overflow-y-auto">
+            {categoryWarnings.map((w) => (
+              <div key={w.row} className="flex items-center flex-wrap gap-1 text-sm">
+                <span className="font-medium">Linha {w.row}:</span>
+                <span>&ldquo;{w.informed_name}&rdquo;</span>
+                <Badge variant="warning">→</Badge>
+                <span>&ldquo;{w.matched_name}&rdquo;</span>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Entendi</Button>
             </DialogClose>
           </DialogFooter>
         </DialogContent>
