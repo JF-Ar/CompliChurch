@@ -127,3 +127,16 @@ export async function createException(data: {
 export async function deleteException(id: string): Promise<void> {
   return apiFetch(`/availability/exceptions/${id}`, { method: "DELETE" });
 }
+
+export interface AvailabilityExceptionWithMember {
+  id: string;
+  member: MemberSummary;
+  unavailable_date: string;
+  reason?: string | null;
+}
+
+export async function listAllExceptions(
+  month: string
+): Promise<{ data: AvailabilityExceptionWithMember[] }> {
+  return apiFetch(`/availability/exceptions/all?month=${month}`);
+}

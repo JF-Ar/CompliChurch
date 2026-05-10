@@ -58,6 +58,48 @@ Quick reference for agents. Read this only to locate a specific page or check wh
 
 ---
 
+## Worship Schedule
+
+- Schedule list → app/(dashboard)/schedule/page.tsx
+  - Hook: useSchedules(params), useMe
+  - Status filter tabs: Todas / Rascunho / Publicada / Cancelada
+  - ScheduleCard component (components/features/schedule/ScheduleCard.tsx)
+  - Pagination; "+ Nova escala" button (leadership+)
+  - Empty state, skeleton (ScheduleCardSkeleton × 3), error state
+
+- New schedule → app/(dashboard)/schedule/new/page.tsx
+  - Hook: useCreateSchedule
+  - Fields: sunday_date (required, validated as Sunday), notes (optional textarea)
+  - 409 → "Já existe uma escala para este domingo."
+  - On success: redirect to /schedule/{id}
+
+- Schedule detail → app/(dashboard)/schedule/[id]/page.tsx
+  - Hook: useSchedule, useMe, useMembers(per_page:200), useInstruments,
+    usePublishSchedule, useAddSlot, useRemoveSlot, useConfirmSlot,
+    useScheduleSuggestion (lazy: only fetches when leadership clicks "Sugerir")
+  - A) Header: date, status badge, notes, "Publicar escala" button (leadership+, draft only)
+    - Publish: confirmation Dialog → email sent to all slots
+  - B) Slots: member name + function + instrument + confirmed badge
+    - "Confirmar presença" for own unconfirmed slot
+    - × remove button (leadership+, draft only, no confirm dialog)
+  - C) Add slot form (leadership+, draft only): member filter input + select,
+    instrument select (optional), function text input; 409 → inline error
+  - D) Suggestion panel (leadership+, draft only): lazy fetch on click,
+    shows suggested_slots with consecutive warning badge, unavailable list
+
+- Availability → app/(dashboard)/availability/page.tsx
+  - Hook: useMyExceptions(month), useAddException, useRemoveException
+  - Month navigation with computed Sundays list
+  - Per-Sunday: "Indisponível" badge + remove OR "Indisponível" button to mark
+  - 409 → toast "Você já marcou este domingo como indisponível."
+  - NOTE: /availability has no nav entry → BLOCKED (see below)
+
+BLOCKED: /availability route not in DashboardNav
+WHY: Page exists at app/(dashboard)/availability/page.tsx but is unreachable without a nav entry. DashboardNav only lists Membros, Escala, Agenda, Patrimônio, Meu Perfil.
+SUGGESTED CONTRACT CHANGE: Add "Disponibilidade" nav item (e.g. CalendarX icon) pointing to /availability, or expose it as a sub-route reachable from the Schedule page.
+
+---
+
 ## Inventory
 
 - Item list → app/(dashboard)/inventory/page.tsx
@@ -174,8 +216,8 @@ Types: `Member`, `MemberSummary`, `MemberCreate`, `MemberUpdate`, `MemberInstrum
 - `assignRole(memberId, roleId)` → POST /members/{id}/roles
 - `removeRole(memberId, roleId)` → DELETE /members/{id}/roles/{roleId}
 
-### lib/api/worship.ts (129 lines) _(no UI pages yet)_
-Types: `Schedule`, `ScheduleSummary`, `ScheduleSlot`, `ScheduleSuggestion`, `AvailabilityException`
+### lib/api/worship.ts
+Types: `Schedule`, `ScheduleSummary`, `ScheduleSlot`, `ScheduleSuggestion`, `AvailabilityException`, `AvailabilityExceptionWithMember`
 - `listSchedules(params?)` → GET /schedules
 - `getSchedule(id)` → GET /schedules/{id}
 - `createSchedule(data)` → POST /schedules
@@ -187,6 +229,7 @@ Types: `Schedule`, `ScheduleSummary`, `ScheduleSlot`, `ScheduleSuggestion`, `Ava
 - `listMyExceptions(month?)` → GET /availability/exceptions
 - `createException(data)` → POST /availability/exceptions
 - `deleteException(id)` → DELETE /availability/exceptions/{id}
+- `listAllExceptions(month)` → GET /availability/exceptions/all (leadership)
 
 ### lib/api/agenda.ts (26 lines) _(no UI pages yet)_
 Types: `EventSummary`
@@ -234,6 +277,13 @@ Items: `useItems`, `useItem`, `useCreateItem`, `useUpdateItem`, `useUploadItemPh
        `useDiscardItem`, `useDonateItem`, `useImportItems`
 Loans: `useLoans`, `useLoan`, `useCreateLoan`, `useApproveLoan`, `useRejectLoan`, `useReturnLoan`
 Churches: `useCongregations`
+
+## Hooks — hooks/useSchedules.ts
+
+Schedules: `useSchedules(params?)`, `useSchedule(id)`, `useCreateSchedule()`, `usePublishSchedule(id)`,
+           `useAddSlot(scheduleId)`, `useRemoveSlot(scheduleId)`, `useConfirmSlot(scheduleId)`,
+           `useScheduleSuggestion(date)`
+Exceptions: `useMyExceptions(month?)`, `useAddException()`, `useRemoveException()`, `useAllExceptions(month)`
 
 ## Hooks — hooks/useDebounce.ts
 
